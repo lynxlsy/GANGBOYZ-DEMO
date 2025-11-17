@@ -184,15 +184,15 @@ export default function DevPage() {
             ...product,
             // Only update with new defaults if the product has the old default values
             freeShippingText: product.freeShippingText === currentDefaults.freeShippingText ? productInfo.freeShippingText : product.freeShippingText,
-            freeShippingThreshold: product.freeShippingThreshold === currentDefaults.freeShippingThreshold ? productInfo.freeShippingThreshold : productInfo.freeShippingThreshold,
+            freeShippingThreshold: product.freeShippingThreshold === currentDefaults.freeShippingThreshold ? productInfo.freeShippingThreshold : product.freeShippingThreshold,
             pickupText: product.pickupText === currentDefaults.pickupText ? productInfo.pickupText : product.pickupText,
-            pickupStatus: product.pickupStatus === currentDefaults.pickupStatus ? productInfo.pickupStatus : productInfo.pickupStatus,
+            pickupStatus: product.pickupStatus === currentDefaults.pickupStatus ? productInfo.pickupStatus : product.pickupStatus,
             material: product.material === currentDefaults.material ? productInfo.material : product.material,
-            weight: product.weight === currentDefaults.weight ? productInfo.weight : productInfo.weight,
-            dimensions: product.dimensions === currentDefaults.dimensions ? productInfo.dimensions : productInfo.dimensions,
-            origin: product.origin === currentDefaults.origin ? productInfo.origin : productInfo.origin,
-            care: product.care === currentDefaults.care ? productInfo.care : productInfo.care,
-            warranty: product.warranty === currentDefaults.warranty ? productInfo.warranty : productInfo.warranty
+            weight: product.weight === currentDefaults.weight ? productInfo.weight : product.weight,
+            dimensions: product.dimensions === currentDefaults.dimensions ? productInfo.dimensions : product.dimensions,
+            origin: product.origin === currentDefaults.origin ? productInfo.origin : product.origin,
+            care: product.care === currentDefaults.care ? productInfo.care : product.care,
+            warranty: product.warranty === currentDefaults.warranty ? productInfo.warranty : product.warranty
           }
         })
         localStorage.setItem("gang-boyz-test-products", JSON.stringify(updatedTestProducts))

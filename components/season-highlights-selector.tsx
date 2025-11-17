@@ -92,6 +92,33 @@ export function SeasonHighlightsSelector({ product, onProductAdded }: { product:
       localStorage.setItem("gang-boyz-season-highlight-products", JSON.stringify(updatedProducts))
       window.dispatchEvent(new CustomEvent('seasonHighlightProductsUpdated'))
       
+      // ALSO add to hot products (PRODUTOS EM DESTAQUE section)
+      const savedHotProducts = localStorage.getItem("gang-boyz-hot-products")
+      let hotProducts: any[] = []
+      
+      if (savedHotProducts) {
+        hotProducts = JSON.parse(savedHotProducts)
+      }
+      
+      // Create hot product object
+      const hotProduct = {
+        id: product.id,
+        name: product.name,
+        description: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice || product.price,
+        image: product.image,
+        category: "Em Alta",
+        isActive: true
+      }
+      
+      // Add to hot products if not already there
+      if (!hotProducts.some(p => p.id === product.id)) {
+        const updatedHotProducts = [...hotProducts, hotProduct]
+        localStorage.setItem("gang-boyz-hot-products", JSON.stringify(updatedHotProducts))
+        window.dispatchEvent(new CustomEvent('hotProductsUpdated'))
+      }
+      
       setIsAdded(true)
       toast.success("Produto adicionado aos destaques da temporada!")
       onProductAdded()

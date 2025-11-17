@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useUser } from "@/lib/user-context"
 import { UserDropdown } from "@/components/user-dropdown"
+import { useUnifiedSearch, SearchResult } from "@/lib/unified-id-system"
+import { useTheme } from "@/lib/theme-context"
 
 interface SidebarProps {
   isOpen: boolean
@@ -16,13 +18,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter()
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [showSearchBar, setShowSearchBar] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const { state } = useCart()
   const { user } = useUser()
+  const { activeTheme } = useTheme()
+  
+  const { search, refreshCache } = useUnifiedSearch()
 
   const cartItemsCount = state.items?.reduce((total: number, item: any) => total + item.quantity, 0) || 0
 
   const menuItems = [
-    { label: "Camisetas", href: "/camisetas/basica", icon: null, hasSubmenu: true, key: "camisetas" },
+    { label: "Camisetas", href: "/camisetas", icon: null, hasSubmenu: true, key: "camisetas" },
     { label: "Moletons", href: "/moletons", icon: null, hasSubmenu: true, key: "moletons" },
     { label: "Jaquetas", href: "/jaquetas", icon: null, hasSubmenu: true, key: "jaquetas" },
     { label: "Calças", href: "/calcas", icon: null, hasSubmenu: true, key: "calcas" },
@@ -67,8 +74,31 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     onClose()
     setOpenDropdown(null)
   }
+  
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      // Close the sidebar and navigate to search results page
+      onClose()
+      router.push(`/busca?q=${encodeURIComponent(searchQuery)}`)
+    }
+  }
+  
+  // Handle search input changes
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    
+    // Perform search if query is long enough
+    if (value.trim().length >= 2) {
+      const results = search(value, 3) // Limit to 3 results
+      setSearchResults(results)
+    } else {
+      setSearchResults([])
+    }
+  }
 
-  // Fechar dropdowns ao clicar fora
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
       setOpenDropdown(null)
@@ -80,7 +110,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [openDropdown])
 
-  // Fechar sidebar ao pressionar ESC
+  // Close sidebar when pressing ESC
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -106,7 +136,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar - Apenas Mobile - Só renderiza quando aberta */}
       {isOpen && (
-        <div className="md:hidden fixed left-0 top-0 h-full w-80 bg-black/95 backdrop-blur-md border-r border-white/20 z-50 transform transition-transform duration-300 ease-in-out translate-x-0">
+        <div className="md:hidden fixed left-0 top-0 h-full w-80 bg-black/95 backdrop-blur-md border-r border-white/20 z-[9999] transform transition-transform duration-300 ease-in-out translate-x-0">
           <div className="flex flex-col h-full">
             {/* Header da Sidebar */}
             <div className="flex items-center justify-between p-6 border-b border-white/20">
@@ -130,7 +160,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <div className="grid grid-cols-2 gap-2">
                 {/* Pesquisar */}
                 <button
-                  onClick={() => setShowSearchBar(!showSearchBar)}
+                  onClick={() => {
+                    setShowSearchBar(!showSearchBar)
+                    setSearchResults([])
+                  }}
                   className="flex items-center justify-center space-x-2 px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group touch-manipulation"
                 >
                   <Search className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
@@ -153,12 +186,121 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {showSearchBar && (
               <div className="p-4 border-b border-white/10">
                 <div className="relative animate-in slide-in-from-top duration-300">
-                  <input
-                    type="text"
-                    placeholder="Pesquisar produtos..."
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 touch-manipulation"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                  <div className="relative">
+                    <form onSubmit={handleSearch}>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={handleSearchInputChange}
+                        placeholder="Pesquisar produtos..."
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 touch-manipulation"
+                        style={{ 
+                          borderColor: 'var(--primary-color)',
+                          boxShadow: activeTheme === 'vibrant-red' 
+                            ? '0 0 0 1px var(--primary-color), 0 0 0 3px rgba(255, 23, 68, 0.2)' 
+                            : '0 0 0 1px var(--primary-color), 0 0 0 3px rgba(139, 0, 0, 0.2)'
+                        }}
+                      />
+                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                    </form>
+                  </div>
+                  
+                  {/* Search Results Preview */}
+                  {searchQuery.trim().length >= 2 && searchResults.length > 0 && (
+                    <div className="mt-2 bg-black border border-white/10 rounded-lg overflow-hidden">
+                      {searchResults.map((result) => (
+                        <div 
+                          key={result.id}
+                          className="p-3 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-colors duration-200"
+                          onClick={() => {
+                            if (result.type === 'product') {
+                              router.push(`/produto/${result.id}`)
+                            } else if (result.type === 'category') {
+                              // Handle category navigation to the main category pages
+                              const categoryPath = result.id.toLowerCase();
+                              // Map category IDs to their proper paths
+                              const categoryPaths: Record<string, string> = {
+                                'camisetas': '/camisetas',
+                                'moletons': '/moletons',
+                                'jaquetas': '/jaquetas',
+                                'calcas': '/calcas',
+                                'shorts': '/shorts-bermudas'
+                              };
+                              
+                              const path = categoryPaths[categoryPath] || `/explore/${categoryPath}`;
+                              router.push(path);
+                            } else {
+                              router.push(`/busca?q=${encodeURIComponent(searchQuery)}`)
+                            }
+                            onClose()
+                            setSearchQuery("")
+                            setSearchResults([])
+                            setShowSearchBar(false)
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <h4 className="text-white text-sm font-medium truncate">{result.name}</h4>
+                                  {result.type === 'category' && (
+                                    <span 
+                                      className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded uppercase tracking-wider"
+                                      style={{ backgroundColor: 'var(--primary-color)' }}
+                                    >
+                                      Categoria
+                                    </span>
+                                  )}
+                                </div>
+                                {result.productCount !== undefined && result.productCount > 0 && (
+                                  <span className="text-gray-400 text-xs bg-gray-800 rounded-full px-2 py-0.5">
+                                    {result.productCount}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Show category only if it's a product result and has a valid category value */}
+                              {result.type === 'product' && 
+                               result.category && 
+                               typeof result.category === 'string' &&
+                               result.category.trim() !== '' && 
+                               result.category.trim() !== '0' &&
+                               isNaN(Number(result.category.trim())) && (
+                                <p className="text-gray-400 text-xs truncate">
+                                  {result.category}
+                                </p>
+                              )}
+                              {result.price && result.price > 0 && (
+                                <p className="text-sm font-medium" style={{ color: 'var(--primary-color)' }}>
+                                  R$ {result.price.toFixed(2).replace('.', ',')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="p-2 bg-black/50 text-center">
+                        <button 
+                          className="text-xs font-medium hover:opacity-80 transition-opacity"
+                          style={{ color: 'var(--primary-color)' }}
+                          onClick={() => {
+                            router.push(`/busca?q=${encodeURIComponent(searchQuery)}`)
+                            onClose()
+                            setSearchQuery("")
+                            setSearchResults([])
+                            setShowSearchBar(false)
+                          }}
+                        >
+                          Ver todos os resultados
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                    <div className="mt-2 bg-black border border-white/10 rounded-lg p-4 text-center">
+                      <p className="text-gray-400 text-sm">Nenhum resultado encontrado</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

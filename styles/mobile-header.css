@@ -58,7 +58,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  touch-action: manipulation;
 }
 
 .mobile-header-item:hover {
@@ -73,15 +72,115 @@
   height: 1rem;
 }
 
-/* Ensure proper z-index for mobile header elements */
-.mobile-header-zindex {
-  z-index: 50;
-  position: relative;
+/* Responsive text visibility */
+@media (max-width: 480px) {
+  .mobile-text-responsive {
+    display: none;
+  }
 }
 
-.mobile-header-button {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  z-index: 10;
+@media (min-width: 481px) {
+  .mobile-text-responsive {
+    display: inline;
+  }
+}
+
+/* Hover effects otimizados para mobile */
+.mobile-hover-effect {
+  transition: all 0.2s ease-in-out;
+}
+
+.mobile-hover-effect:hover {
+  transform: scale(1.05);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Cart badge responsivo */
+.cart-badge {
+  font-size: 0.625rem;
+  min-width: 0.875rem;
+  height: 0.875rem;
+  line-height: 0.875rem;
+}
+
+@media (max-width: 320px) {
+  .cart-badge {
+    font-size: 0.5rem;
+    min-width: 0.75rem;
+    height: 0.75rem;
+    line-height: 0.75rem;
+  }
+}
+
+/* Additional classes for the new mobile header */
+.text-cor-base {
+  color: #ffffff;
+}
+
+.fill-icon-fill-base {
+  fill: #ffffff;
+}
+
+.size-\[50px\] {
+  width: 50px;
+  height: 50px;
+}
+
+.min-w-\[50px\] {
+  min-width: 50px;
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.delay-300 {
+  transition-delay: 300ms;
+}
+
+.py-space-10 {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.gap-space-32 {
+  gap: 32px;
+}
+
+.cart-01 {
+  /* Specific styles for cart-01 if needed */
+}
+
+.container {
+  width: 100%;
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
 }

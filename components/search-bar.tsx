@@ -6,6 +6,7 @@ import { useUnifiedSearch, SearchResult } from "@/lib/unified-id-system"
 import { eventManager } from "@/lib/event-manager"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface SearchBarProps {
   className?: string
@@ -18,6 +19,7 @@ export function SearchBar({ className = "" }: SearchBarProps) {
   const [isLoading, setIsLoading] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
   
   const { search, refreshCache } = useUnifiedSearch()
 
@@ -159,8 +161,15 @@ export function SearchBar({ className = "" }: SearchBarProps) {
                   key={`${result.id}-${index}`}
                   className="px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 cursor-pointer group relative"
                   onClick={() => {
-                    console.log("Item selecionado:", result)
+                    // Navigate to the appropriate page based on type
+                    if (result.type === 'product') {
+                      router.push(`/produto/${result.id}`)
+                    } else {
+                      // For other types, we could navigate to a specific page or show a modal
+                      console.log("Item selecionado:", result)
+                    }
                     setIsOpen(false)
+                    setQuery("")
                   }}
                 >
                   {/* Botões de editar e excluir para dispositivos móveis */}
@@ -240,9 +249,12 @@ export function SearchBar({ className = "" }: SearchBarProps) {
                             {formatPrice(result.price)}
                           </span>
                         )}
-                        {result.category && (
+                        {result.category && 
+                         String(result.category).trim() !== '' && 
+                         String(result.category).trim() !== '0' &&
+                         isNaN(Number(String(result.category).trim())) && (
                           <span className="text-xs text-gray-500">
-                            {result.category}
+                            {String(result.category)}
                           </span>
                         )}
                       </div>

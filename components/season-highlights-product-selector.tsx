@@ -146,6 +146,33 @@ export function SeasonHighlightsProductSelector({ subcategoryKey }: { subcategor
       localStorage.setItem(`gang-boyz-season-highlight-${subcategoryKey}-products`, JSON.stringify(updatedProducts))
       window.dispatchEvent(new CustomEvent('seasonHighlightProductsUpdated'))
       
+      // ALSO add to hot products (PRODUTOS EM DESTAQUE section)
+      const savedHotProducts = localStorage.getItem("gang-boyz-hot-products")
+      let hotProducts: any[] = []
+      
+      if (savedHotProducts) {
+        hotProducts = JSON.parse(savedHotProducts)
+      }
+      
+      // Create hot product object
+      const hotProduct = {
+        id: product.id,
+        name: product.name,
+        description: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice || product.price,
+        image: product.image,
+        category: "Em Alta",
+        isActive: true
+      }
+      
+      // Add to hot products if not already there
+      if (!hotProducts.some(p => p.id === product.id)) {
+        const updatedHotProducts = [...hotProducts, hotProduct]
+        localStorage.setItem("gang-boyz-hot-products", JSON.stringify(updatedHotProducts))
+        window.dispatchEvent(new CustomEvent('hotProductsUpdated'))
+      }
+      
       toast.success("Produto adicionado com sucesso!")
     } catch (error) {
       console.error("Error adding product to season highlights:", error)
@@ -231,12 +258,13 @@ export function SeasonHighlightsProductSelector({ subcategoryKey }: { subcategor
               {searchQuery ? "Resultados da Pesquisa" : "Todos os Produtos"} ({filteredProducts.length})
             </h3>
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {filteredProducts.map((product) => (
                   <div key={product.id} className="relative">
                     <ProductTemplate 
                       product={product} 
                       className="h-full"
+                      disableSeasonHighlightsSelector={true}
                     />
                     {!isProductAdded(product.id) && (
                       <Button

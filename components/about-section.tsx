@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,7 +10,6 @@ import { getContentById, updateContentById } from "@/lib/editable-content-utils"
 import { toast } from "@/components/ui/use-toast"
 import { Edit3, Save } from "lucide-react"
 import { useEditMode } from "@/lib/edit-mode-context"
-import { editableContentSyncService } from '@/lib/editable-content-sync';
 
 interface AboutInfo {
   title: string
@@ -107,129 +106,11 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
     }
   })
   const { isEditMode: globalEditMode } = useEditMode()
-  const editableDescriptionRef = useRef(editableDescription);
-
-  // Keep the ref updated with the latest editableDescription
-  useEffect(() => {
-    editableDescriptionRef.current = editableDescription;
-  }, [editableDescription]);
 
   useEffect(() => {
     loadAboutInfo()
     loadEditableContents()
     
-    // Firebase real-time listener for about description
-    const unsubscribeDescription = editableContentSyncService.listenToContentChanges("about-description", (content) => {
-      if (content) {
-        setEditableDescription(content)
-        setEditingDescription(content)
-        // Also save to localStorage for offline access
-        updateContentById("about-description", content)
-      }
-    });
-    
-    // Firebase real-time listener for about title
-    const unsubscribeTitle = editableContentSyncService.listenToContentChanges("about-title", (content) => {
-      if (content) {
-        setEditableTitle(content)
-        setEditingTitle(content)
-        // Also save to localStorage for offline access
-        updateContentById("about-title", content)
-      }
-    });
-    
-    // Firebase real-time listener for mission title
-    const unsubscribeMissionTitle = editableContentSyncService.listenToContentChanges("mission-title", (content) => {
-      if (content) {
-        setEditableMissionTitle(content)
-        setEditingMissionTitle(content)
-        // Also save to localStorage for offline access
-        updateContentById("mission-title", content)
-      }
-    });
-    
-    // Firebase real-time listener for mission description
-    const unsubscribeMissionDescription = editableContentSyncService.listenToContentChanges("mission-description", (content) => {
-      if (content) {
-        setEditableMissionDescription(content)
-        setEditingMissionDescription(content)
-        // Also save to localStorage for offline access
-        updateContentById("mission-description", content)
-      }
-    });
-    
-    // Firebase real-time listener for stats orders
-    const unsubscribeStatsOrders = editableContentSyncService.listenToContentChanges("about-stats-orders", (content) => {
-      if (content) {
-        const lines = content.split('\n');
-        if (lines.length >= 3) {
-          const updatedStats = {
-            number: lines[0],
-            title: lines[1],
-            description: lines[2]
-          };
-          setEditableStats(prev => ({
-            ...prev,
-            orders: updatedStats
-          }));
-          setEditingStats(prev => ({
-            ...prev,
-            orders: updatedStats
-          }));
-          // Also save to localStorage for offline access
-          updateContentById("about-stats-orders", content)
-        }
-      }
-    });
-    
-    // Firebase real-time listener for stats clients
-    const unsubscribeStatsClients = editableContentSyncService.listenToContentChanges("about-stats-clients", (content) => {
-      if (content) {
-        const lines = content.split('\n');
-        if (lines.length >= 3) {
-          const updatedStats = {
-            number: lines[0],
-            title: lines[1],
-            description: lines[2]
-          };
-          setEditableStats(prev => ({
-            ...prev,
-            clients: updatedStats
-          }));
-          setEditingStats(prev => ({
-            ...prev,
-            clients: updatedStats
-          }));
-          // Also save to localStorage for offline access
-          updateContentById("about-stats-clients", content)
-        }
-      }
-    });
-    
-    // Firebase real-time listener for stats monthly
-    const unsubscribeStatsMonthly = editableContentSyncService.listenToContentChanges("about-stats-monthly", (content) => {
-      if (content) {
-        const lines = content.split('\n');
-        if (lines.length >= 3) {
-          const updatedStats = {
-            number: lines[0],
-            title: lines[1],
-            description: lines[2]
-          };
-          setEditableStats(prev => ({
-            ...prev,
-            monthly: updatedStats
-          }));
-          setEditingStats(prev => ({
-            ...prev,
-            monthly: updatedStats
-          }));
-          // Also save to localStorage for offline access
-          updateContentById("about-stats-monthly", content)
-        }
-      }
-    });
-
     // Escutar eventos de atualização
     const handleAboutInfoUpdate = () => {
       loadAboutInfo()
@@ -244,15 +125,6 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
     return () => {
       window.removeEventListener('aboutInfoUpdated', handleAboutInfoUpdate)
       window.removeEventListener('editableContentsUpdated', handleEditableContentsUpdate)
-      
-      // Clean up Firebase listeners
-      unsubscribeDescription()
-      unsubscribeTitle()
-      unsubscribeMissionTitle()
-      unsubscribeMissionDescription()
-      unsubscribeStatsOrders()
-      unsubscribeStatsClients()
-      unsubscribeStatsMonthly()
     }
   }, [])
 
@@ -373,13 +245,13 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
   }
 
   const handleSaveAboutInfo = () => {
-    // Salvar título e descrição no Firebase e localStorage
+    // Salvar título e descrição
     updateContentById("about-title", editingTitle)
     updateContentById("about-description", editingDescription)
     updateContentById("mission-title", editingMissionTitle)
     updateContentById("mission-description", editingMissionDescription)
     
-    // Salvar estatísticas no Firebase e localStorage
+    // Salvar estatísticas
     const ordersContent = `${editingStats.orders.number}\n${editingStats.orders.title}\n${editingStats.orders.description}`
     updateContentById("about-stats-orders", ordersContent)
     
@@ -442,7 +314,6 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
         break;
     }
     
-    // Salvar no Firebase e localStorage
     updateContentById(key, content);
     
     // Atualizar estado local imediatamente após salvar

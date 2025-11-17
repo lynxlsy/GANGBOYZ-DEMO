@@ -5,12 +5,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Instagram, Mail, Phone, MapPin, Edit3, Save } from "lucide-react"
 import Image from "next/image"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useEditMode } from "@/lib/edit-mode-context"
 import { getContentById, updateContentById } from "@/lib/editable-content-utils"
 import { toast } from "@/hooks/use-toast"
 import { eventManager } from "@/lib/event-manager"
-import { editableContentSyncService } from '@/lib/editable-content-sync';
 
 interface Contact {
   id: string
@@ -56,25 +55,6 @@ export function Footer() {
     { id: 'faq', name: 'FAQ', url: '/faq', order: 4 }
   ])
   const [editingLinks, setEditingLinks] = useState<UsefulLink[]>([])
-  const [copyrightText, setCopyrightText] = useState("© 2024 Gang Boyz. Todos os direitos reservados.")
-  const [isEditingCopyright, setIsEditingCopyright] = useState(false)
-  const [editingCopyrightText, setEditingCopyrightText] = useState("© 2024 Gang Boyz. Todos os direitos reservados.")
-  const usefulLinksRef = useRef(usefulLinks);
-  const editableDescriptionRef = useRef(editableDescription);
-  const copyrightTextRef = useRef(copyrightText);
-
-  // Keep the refs updated with the latest values
-  useEffect(() => {
-    usefulLinksRef.current = usefulLinks;
-  }, [usefulLinks]);
-  
-  useEffect(() => {
-    editableDescriptionRef.current = editableDescription;
-  }, [editableDescription]);
-  
-  useEffect(() => {
-    copyrightTextRef.current = copyrightText;
-  }, [copyrightText]);
 
   // Load contact data
   const loadContactData = () => {
@@ -190,82 +170,6 @@ export function Footer() {
     // Carregar descrição editável
     loadFooterDescription()
     
-    // Carregar copyright text
-    const savedCopyright = localStorage.getItem("footer-copyright-text")
-    if (savedCopyright) {
-      setCopyrightText(savedCopyright)
-      setEditingCopyrightText(savedCopyright)
-    }
-    
-    // Firebase real-time listener for footer description
-    const unsubscribeDescription = editableContentSyncService.listenToContentChanges("footer-description", (content) => {
-      if (content && content !== editableDescriptionRef.current) {
-        setEditableDescription(content)
-        setEditingDescription(content)
-        // Also save to localStorage for offline access
-        updateContentById("footer-description", content)
-      }
-    });
-    
-    // Firebase real-time listener for copyright text
-    const unsubscribeCopyright = editableContentSyncService.listenToContentChanges("footer-copyright", (content) => {
-      if (content && content !== copyrightTextRef.current) {
-        setCopyrightText(content)
-        setEditingCopyrightText(content)
-        // Also save to localStorage for offline access
-        localStorage.setItem("footer-copyright-text", content)
-      }
-    });
-    
-    // Firebase real-time listener for useful links
-    const unsubscribeUsefulLinks = editableContentSyncService.listenToContentChanges("footer-useful-links", (content) => {
-      if (content) {
-        try {
-          const parsedLinks = JSON.parse(content);
-          if (Array.isArray(parsedLinks) && JSON.stringify(parsedLinks) !== JSON.stringify(usefulLinksRef.current)) {
-            setUsefulLinks(parsedLinks);
-            setEditingLinks(parsedLinks);
-            // Also save to localStorage for offline access
-            localStorage.setItem("gang-boyz-useful-links", JSON.stringify(parsedLinks));
-          }
-        } catch (error) {
-          console.error('Erro ao fazer parse dos links úteis do Firebase:', error);
-        }
-      }
-    });
-    
-    // Firebase real-time listener for social contacts
-    const unsubscribeSocialContacts = editableContentSyncService.listenToContentChanges("footer-social-contacts", (content) => {
-      if (content) {
-        try {
-          const parsedContacts = JSON.parse(content);
-          if (Array.isArray(parsedContacts)) {
-            setSocialContacts(parsedContacts);
-            // Also save to localStorage for offline access
-            localStorage.setItem("gang-boyz-contacts", JSON.stringify(parsedContacts));
-          }
-        } catch (error) {
-          console.error('Erro ao fazer parse dos contatos sociais do Firebase:', error);
-        }
-      }
-    });
-    
-    // Firebase real-time listener for contact info
-    const unsubscribeContactInfo = editableContentSyncService.listenToContentChanges("footer-contact-info", (content) => {
-      if (content) {
-        try {
-          const parsedContactInfo = JSON.parse(content);
-          if (Array.isArray(parsedContactInfo)) {
-            setContactInfo(parsedContactInfo);
-            // Also save to localStorage for offline access
-            localStorage.setItem("gang-boyz-contact-info", JSON.stringify(parsedContactInfo));
-          }
-        } catch (error) {
-          console.error('Erro ao fazer parse das informações de contato do Firebase:', error);
-        }
-      }
-    });
-
     // Escutar eventos de atualização
     const handleContactsUpdate = () => {
       loadContactDataFromLocalStorage()
@@ -274,7 +178,7 @@ export function Footer() {
     const handleEditableContentsUpdate = () => {
       // This is for backward compatibility with localStorage
       const descriptionContent = getContentById("footer-description")
-      if (descriptionContent && descriptionContent !== editableDescriptionRef.current) {
+      if (descriptionContent) {
         setEditableDescription(descriptionContent)
         setEditingDescription(descriptionContent)
       }
@@ -286,29 +190,21 @@ export function Footer() {
     return () => {
       window.removeEventListener('contactsUpdated', handleContactsUpdate)
       window.removeEventListener('editableContentsUpdated', handleEditableContentsUpdate)
-      
-      // Clean up Firebase listeners
-      unsubscribeDescription()
-      unsubscribeCopyright()
-      unsubscribeUsefulLinks()
-      unsubscribeSocialContacts()
-      unsubscribeContactInfo()
     }
   }, [])
 
   const handleSaveDescription = async () => {
     try {
-      // Save to Firebase and localStorage
+      // Save to localStorage
       updateContentById("footer-description", editingDescription)
       
       setEditableDescription(editingDescription)
+      setIsEditingDescription(false)
       
       toast({
         title: "Descrição atualizada",
         description: "A descrição do rodapé foi atualizada com sucesso."
       })
-      
-      setIsEditingDescription(false)
       
       // Emit event to notify other components with throttling
       eventManager.emitThrottled('editableContentsUpdated')
@@ -327,7 +223,55 @@ export function Footer() {
     }
   }
 
-  const handleCancelDescriptionEdit = () => {
+  const handleSaveAllContacts = async () => {
+    try {
+      // Save to localStorage
+      localStorage.setItem("gang-boyz-contacts", JSON.stringify(editingSocialContacts))
+      localStorage.setItem("gang-boyz-contact-info", JSON.stringify(editingContactInfo))
+      localStorage.setItem("gang-boyz-useful-links", JSON.stringify(editingLinks))
+      
+      // Dispatch event to notify other components with throttling
+      eventManager.emitThrottled('contactsUpdated')
+      
+      setSocialContacts(editingSocialContacts)
+      setContactInfo(editingContactInfo)
+      setUsefulLinks(editingLinks)
+      
+      setIsEditingSocial(false)
+      setIsEditingContactInfo(false)
+      setIsEditingLinks(false)
+      
+      toast({
+        title: "Contatos atualizados",
+        description: "As informações de contato do rodapé foram atualizadas com sucesso."
+      })
+    } catch (error) {
+      console.error('Erro ao salvar contatos do footer:', error)
+      // Fallback to localStorage only if fails
+      localStorage.setItem("gang-boyz-contacts", JSON.stringify(editingSocialContacts))
+      localStorage.setItem("gang-boyz-contact-info", JSON.stringify(editingContactInfo))
+      localStorage.setItem("gang-boyz-useful-links", JSON.stringify(editingLinks))
+      
+      // Dispatch event to notify other components with throttling
+      eventManager.emitThrottled('contactsUpdated')
+      
+      setSocialContacts(editingSocialContacts)
+      setContactInfo(editingContactInfo)
+      setUsefulLinks(editingLinks)
+      
+      setIsEditingSocial(false)
+      setIsEditingContactInfo(false)
+      setIsEditingLinks(false)
+      
+      toast({
+        title: "Erro ao atualizar contatos",
+        description: "Ocorreu um erro ao salvar as informações de contato do rodapé. Por favor, tente novamente.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
     setEditingDescription(editableDescription)
     setIsEditingDescription(false)
   }
@@ -381,7 +325,19 @@ export function Footer() {
     setIsEditingContactInfo(false)
   }
 
-  const updateSocialContact = (id: string, field: string, value: string) => {
+  const addSocialContact = () => {
+    const newContact: Contact = {
+      id: `social-${Date.now()}`,
+      platform: 'instagram',
+      url: '',
+      isActive: true,
+      displayText: '',
+      order: editingSocialContacts.length + 1
+    }
+    setEditingSocialContacts([...editingSocialContacts, newContact])
+  }
+
+  const updateSocialContact = (id: string, field: string, value: string | boolean) => {
     setEditingSocialContacts(editingSocialContacts.map(contact => 
       contact.id === id ? {...contact, [field]: value} : contact
     ))
@@ -391,19 +347,19 @@ export function Footer() {
     setEditingSocialContacts(editingSocialContacts.filter(contact => contact.id !== id))
   }
 
-  const addSocialContact = () => {
-    const newContact: Contact = {
-      id: `contact-${Date.now()}`,
-      platform: 'instagram',
-      url: '#',
+  const addContactInfo = () => {
+    const newContactInfo: ContactInfo = {
+      id: `info-${Date.now()}`,
+      type: 'email',
+      label: '',
+      value: '',
       isActive: true,
-      displayText: '',
-      order: editingSocialContacts.length + 1
+      order: editingContactInfo.length + 1
     }
-    setEditingSocialContacts([...editingSocialContacts, newContact])
+    setEditingContactInfo([...editingContactInfo, newContactInfo])
   }
 
-  const updateContactInfo = (id: string, field: string, value: string) => {
+  const updateContactInfo = (id: string, field: string, value: string | boolean) => {
     setEditingContactInfo(editingContactInfo.map(info => 
       info.id === id ? {...info, [field]: value} : info
     ))
@@ -411,100 +367,6 @@ export function Footer() {
 
   const removeContactInfo = (id: string) => {
     setEditingContactInfo(editingContactInfo.filter(info => info.id !== id))
-  }
-
-  const addContactInfo = () => {
-    const newInfo: ContactInfo = {
-      id: `info-${Date.now()}`,
-      type: 'email',
-      label: 'Email',
-      value: '',
-      isActive: true,
-      order: editingContactInfo.length + 1
-    }
-    setEditingContactInfo([...editingContactInfo, newInfo])
-  }
-
-  const handleSaveAllContacts = async () => {
-    try {
-      // Save to localStorage
-      localStorage.setItem("gang-boyz-contacts", JSON.stringify(editingSocialContacts))
-      localStorage.setItem("gang-boyz-contact-info", JSON.stringify(editingContactInfo))
-      localStorage.setItem("gang-boyz-useful-links", JSON.stringify(editingLinks))
-      
-      // Save to Firebase
-      updateContentById("footer-social-contacts", JSON.stringify(editingSocialContacts))
-      updateContentById("footer-contact-info", JSON.stringify(editingContactInfo))
-      updateContentById("footer-useful-links", JSON.stringify(editingLinks))
-      
-      // Dispatch event to notify other components with throttling
-      eventManager.emitThrottled('contactsUpdated')
-      
-      setSocialContacts(editingSocialContacts)
-      setContactInfo(editingContactInfo)
-      setUsefulLinks(editingLinks)
-      
-      setIsEditingSocial(false)
-      setIsEditingContactInfo(false)
-      setIsEditingLinks(false)
-      
-      toast({
-        title: "Contatos atualizados",
-        description: "As informações de contato do rodapé foram atualizadas com sucesso."
-      })
-    } catch (error) {
-      console.error('Erro ao salvar contatos do footer:', error)
-      // Fallback to localStorage only if fails
-      localStorage.setItem("gang-boyz-contacts", JSON.stringify(editingSocialContacts))
-      localStorage.setItem("gang-boyz-contact-info", JSON.stringify(editingContactInfo))
-      localStorage.setItem("gang-boyz-useful-links", JSON.stringify(editingLinks))
-      
-      // Dispatch event to notify other components with throttling
-      eventManager.emitThrottled('contactsUpdated')
-      
-      setSocialContacts(editingSocialContacts)
-      setContactInfo(editingContactInfo)
-      setUsefulLinks(editingLinks)
-      
-      setIsEditingSocial(false)
-      setIsEditingContactInfo(false)
-      setIsEditingLinks(false)
-      
-      toast({
-        title: "Contatos atualizados",
-        description: "As informações de contato do rodapé foram atualizadas com sucesso (somente local)."
-      })
-    }
-  }
-
-  const handleSaveCopyright = async () => {
-    try {
-      // Save to localStorage
-      localStorage.setItem("footer-copyright-text", editingCopyrightText)
-      
-      // Save to Firebase
-      await updateContentById("footer-copyright", editingCopyrightText)
-      
-      setCopyrightText(editingCopyrightText)
-      setIsEditingCopyright(false)
-      
-      toast({
-        title: "Copyright atualizado",
-        description: "O texto de copyright foi atualizado com sucesso."
-      })
-    } catch (error) {
-      console.error('Erro ao salvar copyright:', error)
-      toast({
-        title: "Erro ao atualizar copyright",
-        description: "Ocorreu um erro ao salvar o texto de copyright. Por favor, tente novamente.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleCancelCopyrightEdit = () => {
-    setEditingCopyrightText(copyrightText)
-    setIsEditingCopyright(false)
   }
 
   return (
@@ -550,14 +412,13 @@ export function Footer() {
                           Salvar
                         </Button>
                         <Button 
-                          onClick={handleCancelDescriptionEdit} 
+                          onClick={handleCancelEdit} 
                           variant="outline" 
                           size="sm" 
                           className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                         >
                           Cancelar
                         </Button>
-
                       </div>
                     </div>
                   ) : isEditMode ? (
@@ -625,7 +486,7 @@ export function Footer() {
                       onClick={addNewLink}
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Adicionar Link
                     </Button>
@@ -641,12 +502,11 @@ export function Footer() {
                       onClick={handleCancelLinksEdit} 
                       variant="outline" 
                       size="sm" 
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Cancelar
                     </Button>
                   </div>
-
                 </div>
               ) : (
                 <ul className="space-y-2 text-gray-400 text-sm">
@@ -716,7 +576,7 @@ export function Footer() {
                       onClick={addSocialContact}
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Adicionar Rede Social
                     </Button>
@@ -732,12 +592,11 @@ export function Footer() {
                       onClick={handleCancelSocialEdit} 
                       variant="outline" 
                       size="sm" 
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Cancelar
                     </Button>
                   </div>
-
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
@@ -818,7 +677,7 @@ export function Footer() {
                       onClick={addContactInfo}
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Adicionar Contato
                     </Button>
@@ -834,12 +693,11 @@ export function Footer() {
                       onClick={handleCancelContactInfoEdit} 
                       variant="outline" 
                       size="sm" 
-                      className="h-8 text-xs border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="h-8 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
                     >
                       Cancelar
                     </Button>
                   </div>
-
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -876,48 +734,17 @@ export function Footer() {
           {/* Linha Divisória */}
           <div className="border-t border-gray-800 mt-8 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
-              {isEditMode && isEditingCopyright ? (
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                  <Input
-                    value={editingCopyrightText}
-                    onChange={(e) => setEditingCopyrightText(e.target.value)}
-                    className="text-gray-400 text-sm flex-1"
-                  />
-                  <div className="flex gap-1">
-                    <Button 
-                      onClick={handleSaveCopyright}
-                      size="sm"
-                      className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700"
-                    >
-                      <Save className="h-3 w-3" />
-                    </Button>
-                    <Button 
-                      onClick={handleCancelCopyrightEdit}
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-xs border-gray-600 text-gray-300 hover:bg-gray-700"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-gray-400 text-sm flex items-center gap-2">
-                  {copyrightText}
-                  {isEditMode && (
-                    <button 
-                      onClick={() => {
-                        setIsEditingCopyright(true)
-                        setEditingCopyrightText(copyrightText)
-                      }}
-                      className="opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity cursor-pointer"
-                      title="Editar copyright"
-                    >
-                      <Edit3 className="h-3 w-3 text-gray-500 hover:text-white" />
-                    </button>
-                  )}
-                </p>
-              )}
+              <p className="text-gray-400 text-sm flex items-center gap-2">
+                © 2024 Gang Boyz. Todos os direitos reservados.
+                {/* Hidden edit mode toggle - activates on logo click */}
+                <button 
+                  onClick={toggleEditMode}
+                  className="opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                  title="Ativar modo de edição"
+                >
+                  <Edit3 className="h-3 w-3 text-gray-500 hover:text-white" />
+                </button>
+              </p>
               <div className="flex flex-col md:flex-row items-center mt-4 md:mt-0 space-y-2 md:space-y-0 md:space-x-4">
                 <span className="text-gray-400 text-sm">Formas de pagamento:</span>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -967,7 +794,6 @@ export function Footer() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </footer>

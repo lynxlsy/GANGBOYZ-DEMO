@@ -295,9 +295,34 @@ function initHomepageData() {
   localStorage.setItem("gang-boyz-standalone-products", JSON.stringify(demoStandaloneProducts))
   console.log("✅ Produtos de ofertas especiais inicializados")
   
-  // Salvar categorias
-  localStorage.setItem("gang-boyz-categories", JSON.stringify(demoCategories))
-  console.log("✅ Categorias inicializadas")
+  // Verificar se já existem categorias personalizadas antes de sobrescrever
+  const existingCategories = localStorage.getItem("gang-boyz-categories")
+  let shouldInitializeCategories = true
+  
+  if (existingCategories) {
+    try {
+      const parsedCategories = JSON.parse(existingCategories)
+      // Verificar se as categorias já foram personalizadas
+      const isCustomized = parsedCategories.some(cat => 
+        cat.id !== cat.id.toUpperCase() || // IDs personalizados não estão em maiúsculo
+        cat.description !== "" || // Categorias personalizadas podem ter descrições
+        !cat.products // Categorias personalizadas podem não ter o array de produtos
+      )
+      
+      if (isCustomized) {
+        shouldInitializeCategories = false
+        console.log("ℹ️ Categorias personalizadas detectadas, mantendo as existentes")
+      }
+    } catch (error) {
+      console.warn("Erro ao verificar categorias existentes:", error)
+    }
+  }
+  
+  // Salvar categorias apenas se não foram personalizadas
+  if (shouldInitializeCategories) {
+    localStorage.setItem("gang-boyz-categories", JSON.stringify(demoCategories))
+    console.log("✅ Categorias inicializadas")
+  }
   
   // Salvar produtos HOT
   localStorage.setItem("gang-boyz-hot-products", JSON.stringify(demoHotProducts))

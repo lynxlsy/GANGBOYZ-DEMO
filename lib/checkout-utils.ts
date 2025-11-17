@@ -1,5 +1,4 @@
 import { useProducts } from "@/lib/products-context-simple"
-import { eventManager } from "@/lib/event-manager"
 
 // Function to update product stock after a purchase
 export const updateProductStockAfterPurchase = (
@@ -42,7 +41,6 @@ export const updateProductStockAfterPurchase = (
   }
   
   // Emit event to force reload products in all pages
-  // Use eventManager instead of direct dispatchEvent to avoid infinite loops
-  eventManager.emit('forceProductsReload');
-  // Remove testProductCreated dispatch to avoid infinite loops
+  window.dispatchEvent(new CustomEvent('forceProductsReload'))
+  window.dispatchEvent(new Event('testProductCreated'))
 }

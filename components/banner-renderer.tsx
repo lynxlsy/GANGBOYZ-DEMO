@@ -1,8 +1,8 @@
 "use client"
 
-import { useBanner } from '@/hooks/use-banner'
-import { BannerConfig } from '@/lib/banner-config'
-import Image from 'next/image'
+import { useBanner } from "@/hooks/use-banner"
+import { getBannerConfig } from "@/lib/banner-config"
+import { useState, useEffect } from "react"
 
 interface BannerRendererProps {
   bannerId: string
@@ -14,79 +14,97 @@ interface BannerRendererProps {
   fallbackContent?: React.ReactNode
 }
 
-export function BannerRenderer({
-  bannerId,
-  className = "",
-  style = {},
+export function BannerRenderer({ 
+  bannerId, 
+  className = "", 
+  style = {}, 
   onClick,
   showOverlay = false,
   overlayContent,
   fallbackContent
 }: BannerRendererProps) {
-  const { banner, loading, error, config } = useBanner(bannerId)
-  
-  // Removido console.log para evitar loop de logs
-  // console.log('BannerRenderer - bannerId:', bannerId)
-  // console.log('BannerRenderer - banner:', banner)
-  // console.log('BannerRenderer - cropMetadata:', banner?.cropMetadata)
+  const { banner, loading, error } = useBanner(bannerId)
+  const [imageError, setImageError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+
+  // Get banner config for default image
+  const config = getBannerConfig(bannerId)
+  const defaultImage = config?.defaultImage || "/placeholder-default.svg"
+
+  // Reset error state when bannerId changes
+  useEffect(() => {
+    setImageError(false)
+    setRetryCount(0)
+  }, [bannerId])
+
+  // Handle image error with retry logic
+  const handleImageError = () => {
+    if (retryCount < 2) {
+      // Retry with cache-busted URL
+      setRetryCount(prev => prev + 1)
+      setImageError(false)
+    } else {
+      setImageError(true)
+    }
+  }
+
+  // Construct image URL with cache busting
+  const getImageUrl = () => {
+    if (!banner?.currentImage) return defaultImage
+    
+    // Don't add cache buster to data URLs
+    if (banner.currentImage.startsWith('data:')) {
+      return banner.currentImage
+    }
+    
+    // Add cache buster for regular URLs
+    const separator = banner.currentImage.includes('?') ? '&' : '?'
+    return `${banner.currentImage}${separator}v=${Date.now()}-${retryCount}`
+  }
 
   if (loading) {
     return (
-      <div className={`animate-pulse bg-gray-200 rounded-lg ${className}`} style={style}>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-gray-500">Carregando...</div>
-        </div>
+      <div 
+        className={`banner-renderer bg-gray-200 animate-pulse ${className}`}
+        style={style}
+      />
+    )
+  }
+
+  if (error || imageError) {
+    return (
+      <div 
+        className={`banner-renderer bg-gray-100 flex items-center justify-center ${className}`}
+        style={style}
+        onClick={onClick}
+      >
+        {fallbackContent || (
+          <div className="text-center text-gray-500">
+            <div className="text-4xl mb-2">🖼️</div>
+            <div className="text-sm">Banner não disponível</div>
+          </div>
+        )}
       </div>
     )
   }
 
-  if (error || !banner) {
-    return fallbackContent || (
-      <div className={`bg-gray-100 rounded-lg flex items-center justify-center ${className}`} style={style}>
-        <div className="text-gray-500 text-center p-4">
-          <p>Banner não encontrado</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const aspectRatio = config?.aspectRatio || "16:9"
-  const [width, height] = aspectRatio.split(':').map(Number)
-  const aspectRatioStyle = { aspectRatio: `${width}/${height}` }
+  const imageUrl = getImageUrl()
 
   return (
     <div 
-      className={`relative overflow-hidden rounded-lg ${onClick ? 'cursor-pointer hover:scale-105' : ''} transition-transform duration-300 ${className}`}
-      style={{ ...aspectRatioStyle, ...style }}
+      className={`banner-renderer relative overflow-hidden ${className}`}
+      style={style}
       onClick={onClick}
     >
-      {banner.mediaType === 'video' ? (
-        <video
-          src={banner.currentImage}
-          className="w-full h-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-        />
-      ) : (
-        <Image
-          src={banner.currentImage}
-          alt={banner.name}
-          fill
-          className="object-cover"
-          style={{
-            transform: banner.cropMetadata ? 
-              `translate(${banner.cropMetadata.tx || 0}px, ${banner.cropMetadata.ty || 0}px) scale(${banner.cropMetadata.scale || 1})` : 
-              undefined
-          }}
-          priority
-        />
-      )}
+      <img
+        src={imageUrl}
+        alt={banner?.name || "Banner"}
+        className="w-full h-full object-cover"
+        onError={handleImageError}
+      />
       
       {showOverlay && (
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent">
+        <div className="absolute inset-0 bg-black/40">
           {overlayContent}
         </div>
       )}
@@ -94,50 +112,33 @@ export function BannerRenderer({
   )
 }
 
-// Componente específico para banner de ofertas
+// Specific banner components
 export function OffersBanner({ className = "" }: { className?: string }) {
   return (
-    <BannerRenderer
+    <BannerRenderer 
       bannerId="offers-banner"
-      className={`shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-none ${className}`}
-      style={{ aspectRatio: '1248/624' }}
+      className={`w-full ${className}`}
+      style={{ aspectRatio: '2/1' }} // 1248x624px = 2:1 ratio
     />
   )
 }
 
-// Componente específico para banner footer
 export function FooterBanner({ className = "" }: { className?: string }) {
   return (
-    <BannerRenderer
+    <BannerRenderer 
       bannerId="footer-banner"
-      className={`w-full h-[650px] ${className}`}
-      style={{ aspectRatio: '1920/650' }}
-      showOverlay={true}
-      overlayContent={
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
-      }
+      className={`w-full ${className}`}
+      style={{ aspectRatio: '2/1' }} // 1248x624px = 2:1 ratio (same as offers banner)
     />
   )
 }
 
-// Componente específico para banner hero
 export function HeroBanner({ className = "" }: { className?: string }) {
   return (
-    <BannerRenderer
+    <BannerRenderer 
       bannerId="hero-banner-1"
-      className={`w-full h-full ${className}`}
-      style={{ aspectRatio: '1507/1333' }}
-    />
-  )
-}
-
-// Componente específico para banner de serviços
-export function ServicesBanner({ className = "" }: { className?: string }) {
-  return (
-    <BannerRenderer
-      bannerId="services-banner"
-      className={`shadow-lg hover:shadow-xl transition-shadow duration-300 ${className}`}
-      style={{ aspectRatio: '1248/624' }}
+      className={`w-full ${className}`}
+      style={{ aspectRatio: '16/9' }} // 1920x1080px = 16:9 ratio
     />
   )
 }

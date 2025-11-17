@@ -18,7 +18,11 @@ import {
   Upload,
   Image as ImageIcon,
   Save as SaveIcon,
-  AlertTriangle
+  AlertTriangle,
+  CloudUpload,
+  CheckCircle,
+  AlertCircle,
+  Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/lib/theme-context"
@@ -26,8 +30,8 @@ import { useEditMode } from "@/lib/edit-mode-context"
 import { toast } from "sonner"
 import { getContentById, updateContentById } from "@/lib/editable-content-utils"
 import { editableContentSyncService } from '@/lib/editable-content-sync'
-import { useBanner, cleanupOldBannerData } from '@/hooks/use-banner'
-import { LocalStorageManager } from '@/lib/localStorage-utils'
+import { useBanner } from '@/hooks/use-banner'
+import { BannerHeightManager } from '@/components/banner-height-manager'
 
 interface WelcomeModalConfig {
   enabled: boolean
@@ -55,6 +59,14 @@ export function EditModeControls() {
   const [showNotificationConfig, setShowNotificationConfig] = useState(false)
   const [showThemeConfig, setShowThemeConfig] = useState(false)
   const [showImageUpload, setShowImageUpload] = useState(false)
+  
+  // Firebase sync state
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<{ success: boolean; message: string } | null>(null)
+  
+  // Firebase Sync Log Modal state
+  const [showSyncLog, setShowSyncLog] = useState(false)
+  const [syncLogs, setSyncLogs] = useState<Array<{timestamp: Date, message: string, type: 'info' | 'success' | 'error' | 'warning'}>>([])
   
   // Welcome modal state
   const [welcomeModalConfig, setWelcomeModalConfig] = useState<WelcomeModalConfig>({
@@ -111,8 +123,6 @@ export function EditModeControls() {
 
   // Load saved configurations
   useEffect(() => {
-    // Limpar dados antigos do localStorage
-    cleanupOldBannerData();
     // Load welcome modal config
     const savedWelcomeConfig = localStorage.getItem('welcome-modal-config')
     if (savedWelcomeConfig) {
@@ -488,22 +498,21 @@ export function EditModeControls() {
                   
                   // Otimizar dados antes de salvar - remover propriedades desnecessárias
                   const optimizedBanners = banners.map(b => {
-                    const optimized = LocalStorageManager.optimizeBannerData(b);
                     // Certificar-se de que cropMetadata e overlaySettings não sejam undefined
-                    if (optimized.cropMetadata === undefined) {
-                      delete optimized.cropMetadata;
+                    if (b.cropMetadata === undefined) {
+                      delete b.cropMetadata;
                     }
-                    if (optimized.overlaySettings === undefined) {
-                      delete optimized.overlaySettings;
+                    if (b.overlaySettings === undefined) {
+                      delete b.overlaySettings;
                     }
                     // Remover propriedades vazias
-                    if (optimized.cropMetadata && Object.keys(optimized.cropMetadata).length === 0) {
-                      delete optimized.cropMetadata;
+                    if (b.cropMetadata && Object.keys(b.cropMetadata).length === 0) {
+                      delete b.cropMetadata;
                     }
-                    if (optimized.overlaySettings && Object.keys(optimized.overlaySettings).length === 0) {
-                      delete optimized.overlaySettings;
+                    if (b.overlaySettings && Object.keys(b.overlaySettings).length === 0) {
+                      delete b.overlaySettings;
                     }
-                    return optimized;
+                    return b;
                   });
                   
                   // Verificar tamanho dos dados antes de salvar
@@ -513,9 +522,9 @@ export function EditModeControls() {
                     console.warn(`⚠️ Dados do banner excedem o limite de armazenamento`);
                     // Manter apenas os banners mais recentes
                     const recentBanners = banners.slice(-3); // Manter apenas os 3 mais recentes
-                    LocalStorageManager.safeSetItem("gang-boyz-homepage-banners", JSON.stringify(recentBanners));
+                    localStorage.setItem("gang-boyz-homepage-banners", JSON.stringify(recentBanners));
                   } else {
-                    LocalStorageManager.safeSetItem("gang-boyz-homepage-banners", bannersData);
+                    localStorage.setItem("gang-boyz-homepage-banners", bannersData);
                   }
                   
                   // Dispatch the bannerUpdated event with the correct format that the useBanner hook expects
@@ -587,7 +596,7 @@ export function EditModeControls() {
                       if (Array.isArray(data) && data.length > 3) {
                         // Manter apenas os 3 mais recentes
                         const recentData = data.slice(-3);
-                        LocalStorageManager.safeSetItem(key, JSON.stringify(recentData));
+                        localStorage.setItem(key, JSON.stringify(recentData));
                         console.log(`✅ Espaço liberado para ${key}`);
                         spaceFreed = true;
                       }
@@ -651,14 +660,178 @@ export function EditModeControls() {
     }
     return configInfo[bannerId] || 'Formatos aceitos: JPG, PNG, WEBP (máx. 5MB)'
   }
-
+  
+  // Firebase Sync Function
+  const handleFirebaseSync = async () => {
+    setIsSyncing(true);
+    setSyncStatus(null);
+    
+    try {
+      // Show syncing message
+      toast.info("Iniciando sincronização com Firebase...");
+      
+      // Import the banner sync service
+      const { bannerSyncService } = await import('@/lib/banner-sync-service');
+      
+      // Sync all homepage banners
+      await bannerSyncService.syncHomepageBannersAndStripsToFirebase();
+      
+      // Also sync editable content
+      await editableContentSyncService.syncAllContentsToFirebase();
+      
+      // Show success message
+      toast.success("Sincronização com Firebase concluída com sucesso!");
+      setSyncStatus({
+        success: true,
+        message: "Todos os dados foram sincronizados com sucesso."
+      });
+    } catch (error: any) {
+      console.error("Erro na sincronização com Firebase:", error);
+      
+      // Show error message with details
+      let errorMessage = "Erro ao sincronizar com Firebase.";
+      let errorDetails = "";
+      
+      if (error?.code === 'resource-exhausted') {
+        errorMessage = "Quota do Firebase excedida.";
+        errorDetails = "O limite de uso do Firebase foi atingido. Os dados foram salvos localmente.";
+      } else if (error?.message?.includes('timeout') || error?.message?.includes('Timeout')) {
+        errorMessage = "Tempo limite excedido.";
+        errorDetails = "A conexão com o Firebase demorou muito. Tente novamente mais tarde.";
+      } else if (error?.message) {
+        errorDetails = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        description: errorDetails
+      });
+      
+      setSyncStatus({
+        success: false,
+        message: `${errorMessage} ${errorDetails}`
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
+  // Enhanced Firebase Sync with Detailed Logging
+  const handleFirebaseSyncWithLogs = async () => {
+    // Clear previous logs and open the log modal
+    setSyncLogs([]);
+    setShowSyncLog(true);
+    
+    // Add initial log
+    addSyncLog("Iniciando sincronização com Firebase...", "info");
+    
+    setIsSyncing(true);
+    setSyncStatus(null);
+    
+    try {
+      // Import the banner sync service
+      const { bannerSyncService } = await import('@/lib/banner-sync-service');
+      
+      // Check Firebase availability
+      addSyncLog("Verificando disponibilidade do Firebase...", "info");
+      
+      // Load and sync homepage banners
+      addSyncLog("Carregando banners da homepage...", "info");
+      const savedBanners = localStorage.getItem('gang-boyz-homepage-banners');
+      if (savedBanners) {
+        const banners = JSON.parse(savedBanners);
+        addSyncLog(`Encontrados ${banners.length} banners para sincronização`, "info");
+        
+        for (const banner of banners) {
+          try {
+            addSyncLog(`Sincronizando banner: ${banner.id}...`, "info");
+            await bannerSyncService.syncBannerToFirebase(banner, 'hero');
+            addSyncLog(`✅ Banner ${banner.id} sincronizado com sucesso`, "success");
+          } catch (bannerError: any) {
+            addSyncLog(`❌ Erro ao sincronizar banner ${banner.id}: ${bannerError.message}`, "error");
+          }
+        }
+      } else {
+        addSyncLog("Nenhum banner encontrado para sincronização", "warning");
+      }
+      
+      // Sync banner strip if exists
+      addSyncLog("Verificando faixa de aviso...", "info");
+      const savedStripData = localStorage.getItem('gang-boyz-homepage-banner-strip');
+      if (savedStripData) {
+        try {
+          const stripData = JSON.parse(savedStripData);
+          addSyncLog("Sincronizando faixa de aviso...", "info");
+          await bannerSyncService.syncBannerStripToFirebase(stripData, 'homepage-banner-strip');
+          addSyncLog("✅ Faixa de aviso sincronizada com sucesso", "success");
+        } catch (stripError: any) {
+          addSyncLog(`❌ Erro ao sincronizar faixa de aviso: ${stripError.message}`, "error");
+        }
+      }
+      
+      // Sync editable content
+      addSyncLog("Sincronizando conteúdo editável...", "info");
+      try {
+        await editableContentSyncService.syncAllContentsToFirebase();
+        addSyncLog("✅ Conteúdo editável sincronizado com sucesso", "success");
+      } catch (contentError: any) {
+        addSyncLog(`❌ Erro ao sincronizar conteúdo editável: ${contentError.message}`, "error");
+      }
+      
+      // Final success message
+      addSyncLog("Sincronização concluída com sucesso!", "success");
+      toast.success("Sincronização com Firebase concluída com sucesso!");
+      setSyncStatus({
+        success: true,
+        message: "Todos os dados foram sincronizados com sucesso."
+      });
+    } catch (error: any) {
+      console.error("Erro na sincronização com Firebase:", error);
+      addSyncLog(`Erro crítico na sincronização: ${error.message}`, "error");
+      
+      // Show error message with details
+      let errorMessage = "Erro ao sincronizar com Firebase.";
+      let errorDetails = "";
+      
+      if (error?.code === 'resource-exhausted') {
+        errorMessage = "Quota do Firebase excedida.";
+        errorDetails = "O limite de uso do Firebase foi atingido. Os dados foram salvos localmente.";
+      } else if (error?.message?.includes('timeout') || error?.message?.includes('Timeout')) {
+        errorMessage = "Tempo limite excedido.";
+        errorDetails = "A conexão com o Firebase demorou muito. Tente novamente mais tarde.";
+      } else if (error?.message) {
+        errorDetails = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        description: errorDetails
+      });
+      
+      setSyncStatus({
+        success: false,
+        message: `${errorMessage} ${errorDetails}`
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
+  const addSyncLog = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    const newLog = {
+      timestamp: new Date(),
+      message,
+      type
+    };
+    
+    setSyncLogs(prev => [...prev, newLog]);
+  };
+  
   return (
     <>
       {/* Floating Edit Mode Controls Button - Only visible in edit mode */}
       {isEditMode && (
         <button
           onClick={() => setShowWelcomeModalConfig(true)}
-          className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50 bg-yellow-400 text-gray-900 p-3 rounded-full shadow-lg hover:bg-yellow-300 transition-all duration-300"
+          className="fixed right-4 top-1/2 transform -translate-y-1/2 z-[9999] bg-yellow-400 text-gray-900 p-3 rounded-full shadow-lg hover:bg-yellow-300 transition-all duration-300"
           title="Configurações do Modo de Edição"
         >
           <Settings className="h-6 w-6" />
@@ -673,6 +846,68 @@ export function EditModeControls() {
         accept="image/*"
         className="hidden"
       />
+      
+      {/* Firebase Sync Log Modal */}
+      {showSyncLog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-gray-900 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <CloudUpload className="h-5 w-5" />
+                Log de Sincronização com Firebase
+              </h3>
+              <button 
+                onClick={() => setShowSyncLog(false)}
+                className="text-gray-400 hover:text-white"
+                disabled={isSyncing}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto bg-gray-800 rounded-lg p-4 mb-4">
+              {syncLogs.length > 0 ? (
+                <div className="space-y-2">
+                  {syncLogs.map((log, index) => (
+                    <div 
+                      key={index} 
+                      className={`p-2 rounded text-sm flex items-start ${
+                        log.type === 'success' ? 'bg-green-900/30 text-green-300' :
+                        log.type === 'error' ? 'bg-red-900/30 text-red-300' :
+                        log.type === 'warning' ? 'bg-yellow-900/30 text-yellow-300' :
+                        'bg-blue-900/30 text-blue-300'
+                      }`}
+                    >
+                      <span className="font-mono text-xs mr-2">
+                        {log.timestamp.toLocaleTimeString()}
+                      </span>
+                      <span>{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  {isSyncing ? "Aguardando início da sincronização..." : "Nenhum log disponível"}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-400">
+                {syncLogs.length} eventos registrados
+              </div>
+              <Button
+                onClick={() => setShowSyncLog(false)}
+                variant="outline"
+                className="flex items-center gap-2 text-gray-900 dark:text-gray-100"
+                disabled={isSyncing}
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image Upload Modal */}
       {showImageUpload && (
@@ -842,6 +1077,29 @@ export function EditModeControls() {
                   </h4>
                   
                   <div className="space-y-4">
+                    {/* Banner Height Manager */}
+                    <BannerHeightManager />
+                    
+                    {/* Ativar/Desativar */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-200">Sistema Ativo</span>
+                      <button
+                        onClick={() => updateNotificationSetting('enabled', !notificationSettings.enabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+                      >
+                        <span
+                          className={`${
+                            notificationSettings.enabled ? 'bg-blue-600' : 'bg-gray-600'
+                          } relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
+                        >
+                          <span
+                            className={`${
+                              notificationSettings.enabled ? 'translate-x-6' : 'translate-x-1'
+                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                          />
+                        </span>
+                      </button>
+                    </div>
                     {/* Ativar/Desativar */}
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-200">Modal Ativo</span>
@@ -1018,6 +1276,30 @@ export function EditModeControls() {
                       <span className="hidden sm:inline">Editar Banner Footer</span>
                       <span className="sm:hidden">Footer</span>
                     </Button>
+                    
+                    {/* Botão para editar a faixa de aviso */}
+                    <Button
+                      onClick={() => {
+                        console.log('Botão Editar Faixa de Aviso clicado')
+                        setShowWelcomeModalConfig(false)
+                        // Dispatch event to open banner strip editor
+                        console.log('Disparando evento openBannerStripEditor')
+                        // Adicionar um pequeno atraso para garantir que o listener esteja registrado
+                        setTimeout(() => {
+                          const event = new CustomEvent('openBannerStripEditor', {
+                            detail: { source: 'edit-mode-controls' }
+                          })
+                          window.dispatchEvent(event)
+                          console.log('Evento openBannerStripEditor disparado')
+                        }, 100)
+                      }}
+                      variant="outline"
+                      className="flex items-center gap-2 text-gray-900 dark:text-gray-100"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="hidden sm:inline">Editar Faixa de Aviso</span>
+                      <span className="sm:hidden">Faixa</span>
+                    </Button>
                   </div>
                 </div>
                 
@@ -1044,6 +1326,22 @@ export function EditModeControls() {
                         <Palette className="h-4 w-4" />
                         <span className="hidden sm:inline">Temas</span>
                         <span className="sm:hidden">Temas</span>
+                      </Button>
+                      
+                      {/* Firebase Sync Button */}
+                      <Button
+                        onClick={handleFirebaseSync}
+                        variant="outline"
+                        className="flex items-center gap-2 text-gray-900 dark:text-gray-100"
+                        disabled={isSyncing}
+                      >
+                        <CloudUpload className="h-4 w-4" />
+                        <span className="hidden sm:inline">
+                          {isSyncing ? "Sincronizando..." : "Sincronizar Firebase"}
+                        </span>
+                        <span className="sm:hidden">
+                          {isSyncing ? "Sync..." : "Firebase"}
+                        </span>
                       </Button>
                     </div>
                   </div>
@@ -1091,7 +1389,6 @@ export function EditModeControls() {
                     <Settings className="h-4 w-4" />
                     Configurações
                   </h4>
-                  
                   <div className="space-y-4">
                     {/* Ativar/Desativar */}
                     <div className="flex items-center justify-between">

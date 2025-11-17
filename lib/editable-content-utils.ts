@@ -1,6 +1,4 @@
 // Utilitário para gerenciar conteúdos editáveis
-import { editableContentSyncService } from './editable-content-sync';
-
 export interface EditableContent {
   id: string;
   title: string;
@@ -77,6 +75,16 @@ export const getDefaultEditableContents = (): EditableContent[] => [
     id: "services",
     title: "Serviços",
     content: "ATENDIMENTO\nSegunda à sexta das 9h00 às 17h00\n\nTROCAS E DEVOLUÇÕES\nPrimeira troca é grátis\n\nFRETE\nGrátis acima de R$349\n\nPARCELAMENTO\nEm até 10x sem juros no cartão"
+  },
+  {
+    id: "hot-title",
+    title: "Título Produtos em Destaque",
+    content: "PRODUTOS EM DESTAQUE"
+  },
+  {
+    id: "hot-subtitle",
+    title: "Subtítulo Produtos em Destaque",
+    content: "Os produtos mais vendidos e em alta"
   },
   // Sobre Nós page content
   {
@@ -201,7 +209,7 @@ Você pode visualizar e imprimir partes do conteúdo apenas para uso pessoal e n
 
 4. REGISTRO DE CONTA
 
-Para realizar compras, você pode precisar criar uma conta. Você é responsável por manter a confidencialidade de sua conta e senha, e por restringir o acesso ao seu computador. Você concorda em aceitar responsabilidade por todas as atividades que ocorrem sob sua conta.
+Para realizar compras, você pode precisar criar uma conta. Você é responsável por manter a confidencialidade de sua conta e senha, e por restringir o acesso ao seu computador. Você concorda em aceitar responsabilidade por todas as atividades que ocorram sob sua conta.
 
 5. PREÇOS E PAGAMENTO
 
@@ -463,21 +471,6 @@ export const saveEditableContents = async (contents: EditableContent[]): Promise
 
 // Modified updateContentById to save to backend
 export const updateContentById = async (id: string, content: string): Promise<void> => {
-  // Verificar se estamos no cliente
-  if (typeof window === 'undefined') return;
-  
-  // Atualizar no localStorage com o novo formato
-  const localStorageKey = `editable-content-${id}`;
-  localStorage.setItem(localStorageKey, content);
-  
-  // Sincronizar com Firebase
-  try {
-    await editableContentSyncService.syncContentToFirebase(id, content);
-  } catch (error) {
-    console.warn(`Erro ao sincronizar conteúdo ${id} com Firebase:`, error);
-  }
-  
-  // Também salvar no formato antigo para compatibilidade
   const contents = await loadEditableContents();
   const updatedContents = contents.map(item => 
     item.id === id ? {...item, content} : item
@@ -486,9 +479,6 @@ export const updateContentById = async (id: string, content: string): Promise<vo
   
   // Also save individually to backend
   await saveContentToBackend(id, content);
-  
-  // Disparar evento para notificar outros componentes
-  window.dispatchEvent(new CustomEvent('editableContentsUpdated'));
 };
 
 // Keep the synchronous version for backward compatibility
@@ -546,134 +536,27 @@ export const updateContentByIdSync = (id: string, content: string): void => {
   saveEditableContentsSync(updatedContents);
 };
 
-// Função para obter conteúdo editável (com fallback para Firebase)
-export const getContentById = (id: string): string => {
-  // Verificar se estamos no cliente
-  if (typeof window === 'undefined') return "";
-  
-  // Primeiro tentar obter do localStorage no novo formato
-  const localStorageKey = `editable-content-${id}`;
-  const localStorageContent = localStorage.getItem(localStorageKey);
-  
-  if (localStorageContent) {
-    return localStorageContent;
-  }
-  
-  // Tentar obter do formato antigo
+export const getContentById = (id: string): string | undefined => {
   const contents = loadEditableContentsSync();
-  const contentItem = contents.find(item => item.id === id);
-  if (contentItem) {
-    return contentItem.content;
-  }
-  
-  // Se não encontrar, tentar obter do conteúdo padrão
-  const defaultContents = getDefaultEditableContents();
-  const defaultContent = defaultContents.find(content => content.id === id);
-  
-  if (defaultContent) {
-    return defaultContent.content;
-  }
-  
-  return "";
+  const item = contents.find(item => item.id === id);
+  return item ? item.content : undefined;
 };
 
-// Função assíncrona para obter conteúdo editável (com suporte a Firebase)
-export const getContentByIdAsync = async (id: string): Promise<string> => {
-  // Verificar se estamos no cliente
-  if (typeof window === 'undefined') return "";
-  
-  // Primeiro tentar obter do localStorage no novo formato
-  const localStorageKey = `editable-content-${id}`;
-  const localStorageContent = localStorage.getItem(localStorageKey);
-  
-  if (localStorageContent) {
-    return localStorageContent;
-  }
-  
-  // Tentar obter do formato antigo
-  const contents = loadEditableContentsSync();
-  const contentItem = contents.find(item => item.id === id);
-  if (contentItem) {
-    return contentItem.content;
-  }
-  
-  // Tentar obter do Firebase
-  try {
-    const firebaseContent = await editableContentSyncService.getContentFromFirebase(id);
-    if (firebaseContent) {
-      // Salvar no localStorage para uso futuro
-      localStorage.setItem(`editable-content-${id}`, firebaseContent);
-      return firebaseContent;
-    }
-  } catch (error) {
-    console.warn(`Erro ao buscar conteúdo ${id} do Firebase:`, error);
-  }
-  
-  // Se não encontrar no Firebase, tentar obter do conteúdo padrão
-  const defaultContents = getDefaultEditableContents();
-  const defaultContent = defaultContents.find(content => content.id === id);
-  
-  if (defaultContent) {
-    return defaultContent.content;
-  }
-  
-  return "";
+// Async version of getContentById
+export const getContentByIdAsync = async (id: string): Promise<string | undefined> => {
+  const contents = await loadEditableContents();
+  const item = contents.find(item => item.id === id);
+  return item ? item.content : undefined;
 };
 
-// Função para inicializar conteúdos padrão
-export const initializeDefaultContents = (): void => {
-  // Verificar se estamos no cliente
-  if (typeof window === 'undefined') return;
+// Async version of updateContentById
+export const updateContentByIdAsync = async (id: string, content: string): Promise<void> => {
+  const contents = await loadEditableContents();
+  const updatedContents = contents.map(item => 
+    item.id === id ? {...item, content} : item
+  );
+  await saveEditableContents(updatedContents);
   
-  const defaultContents = getDefaultEditableContents();
-  
-  defaultContents.forEach(content => {
-    const localStorageKey = `editable-content-${content.id}`;
-    const existingContent = localStorage.getItem(localStorageKey);
-    
-    // Se não existir no localStorage, salvar o conteúdo padrão
-    if (!existingContent) {
-      localStorage.setItem(localStorageKey, content.content);
-    }
-  });
-};
-
-// Função para migrar conteúdos do formato antigo para o novo
-export const migrateOldContents = (): void => {
-  // Verificar se estamos no cliente
-  if (typeof window === 'undefined') return;
-  
-  // Lista de IDs de conteúdo antigo que podem precisar de migração
-  const oldContentIds = [
-    "explore-title", "explore-categories", "offers-title", "recommendations-title",
-    "season-highlights-title", "season-highlights-description", "about-title",
-    "about-description", "about-stats-orders", "about-stats-clients", "about-stats-monthly",
-    "mission-title", "mission-description", "services", "sobre-nos-missao",
-    "sobre-nos-visao", "sobre-nos-valores", "sobre-nos-historia",
-    "politica-privacidade-content", "termos-uso-content"
-  ];
-  
-  oldContentIds.forEach(id => {
-    const oldKey = id;
-    const newKey = `editable-content-${id}`;
-    
-    // Verificar se existe conteúdo no formato antigo
-    const oldContent = localStorage.getItem(oldKey);
-    if (oldContent) {
-      // Migrar para o novo formato
-      localStorage.setItem(newKey, oldContent);
-      // Remover o conteúdo antigo
-      localStorage.removeItem(oldKey);
-      console.log(`Migrado conteúdo: ${id}`);
-    }
-  });
-};
-
-// Função para sincronizar todos os conteúdos com Firebase
-export const syncAllContentsToFirebase = async (): Promise<void> => {
-  try {
-    await editableContentSyncService.syncAllContentsToFirebase();
-  } catch (error) {
-    console.error('Erro ao sincronizar todos os conteúdos com Firebase:', error);
-  }
+  // Also save individually to backend
+  await saveContentToBackend(id, content);
 };

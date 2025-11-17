@@ -1,95 +1,81 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
-} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { AdminProductModal } from "@/components/admin-product-modal"
+
+interface Product {
+  id: string
+  name: string
+  price: number
+  originalPrice?: number
+  image: string
+  color: string
+  category: string
+  subcategory?: string
+  label?: string
+  labelType?: 'promocao' | 'esgotado' | 'personalizada'
+  // Adicionando campos de estoque
+  stock?: number
+  sizeStock?: Record<string, number>
+  // Adicionando campos para recomendações
+  availableUnits?: number
+  availableSizes?: string[]
+  sizeQuantities?: Record<string, number>
+  recommendationCategory?: string
+  recommendationSubcategory?: string
+  // Adicionando campos para destacar em diferentes seções
+  destacarEmRecomendacoes?: boolean
+  destacarEmOfertas?: boolean
+  destacarEmAlta?: boolean
+  destacarLancamentos?: boolean
+  // Adicionando campo de descrição opcional
+  description?: string
+  // Adicionando campos de informações do produto
+  freeShippingText?: string
+  freeShippingThreshold?: string
+  pickupText?: string
+  pickupStatus?: string
+  material?: string
+  weight?: string
+  dimensions?: string
+  origin?: string
+  care?: string
+  warranty?: string
+}
 
 interface AdminEditModalProps {
   isOpen: boolean
   onClose: () => void
+  product: Product | null
+  onSave: (product: Product) => void
   title: string
-  fields: {
-    name: string
-    label: string
-    value: string
-    type?: 'text' | 'textarea' | 'number'
-  }[]
-  onSave: (updatedFields: Record<string, string>) => void
+  subcategory: string
+  mode: 'create' | 'edit'
 }
 
 export function AdminEditModal({ 
   isOpen, 
   onClose, 
+  product, 
+  onSave, 
   title, 
-  fields, 
-  onSave 
+  subcategory,
+  mode 
 }: AdminEditModalProps) {
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>(
-    fields.reduce((acc, field) => {
-      acc[field.name] = field.value
-      return acc
-    }, {} as Record<string, string>)
-  )
-
-  const handleSave = () => {
-    onSave(fieldValues)
-    onClose()
-  }
-
-  const handleFieldChange = (name: string, value: string) => {
-    setFieldValues(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
+  if (!isOpen) return null
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-6 py-4">
-          {fields.map((field) => (
-            <div key={field.name} className="space-y-2">
-              <label className="text-sm font-medium text-gray-900">
-                {field.label}
-              </label>
-              {field.type === 'textarea' ? (
-                <Textarea
-                  value={fieldValues[field.name]}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                  className="min-h-[120px]"
-                />
-              ) : (
-                <Input
-                  type={field.type || 'text'}
-                  value={fieldValues[field.name]}
-                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave}>
-            Salvar Alterações
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <AdminProductModal
+      isOpen={isOpen}
+      onClose={onClose}
+      product={product}
+      onSave={onSave}
+      title={title}
+      subcategory={subcategory}
+      mode={mode}
+    />
   )
 }

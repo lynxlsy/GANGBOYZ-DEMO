@@ -15,6 +15,7 @@ export interface ProductID {
   updatedAt: string
   tags?: string[]
   metadata?: Record<string, any>
+  productCount?: number // Adicionado para mostrar a contagem de produtos nas categorias
 }
 
 export interface SearchResult {
@@ -26,6 +27,7 @@ export interface SearchResult {
   image?: string
   category?: string
   relevanceScore: number
+  productCount?: number // Adicionado para mostrar a contagem de produtos nas categorias
 }
 
 // Configurações de ID por tipo
@@ -164,6 +166,71 @@ export class UnifiedSearchSystem {
       }
     })
     
+    // Adicionar categorias principais ao sistema de busca
+    const mainCategories = [
+      { 
+        id: 'camisetas', 
+        name: 'Camisetas', 
+        type: 'category',
+        productCount: this.getActiveProductCountByMainCategory('Camisetas')
+      },
+      { 
+        id: 'moletons', 
+        name: 'Moletons', 
+        type: 'category',
+        productCount: this.getActiveProductCountByMainCategory('Moletons')
+      },
+      { 
+        id: 'jaquetas', 
+        name: 'Jaquetas', 
+        type: 'category',
+        productCount: this.getActiveProductCountByMainCategory('Jaquetas')
+      },
+      { 
+        id: 'calcas', 
+        name: 'Calças', 
+        type: 'category',
+        productCount: this.getActiveProductCountByMainCategory('Calças')
+      },
+      { 
+        id: 'shorts-bermudas', 
+        name: 'Shorts/Bermudas', 
+        type: 'category',
+        productCount: this.getActiveProductCountByMainCategory('Shorts/Bermudas')
+      }
+    ]
+    
+    // Remover categorias duplicadas que podem existir no localStorage
+    const mainCategoryIds = mainCategories.map(cat => cat.id)
+    this.allItems = this.allItems.filter(item => {
+      // Manter todos os itens que não são categorias principais
+      if (item.type !== 'category') return true
+      
+      // Para categorias, manter apenas as que não estão na lista de categorias principais
+      // ou que são as categorias principais que estamos adicionando
+      return !mainCategoryIds.includes(item.id)
+    })
+    
+    // Adicionar as categorias principais corretas
+    mainCategories.forEach(category => {
+      this.allItems.push({
+        id: category.id,
+        type: category.type as ProductID['type'],
+        name: category.name,
+        description: `Categoria de ${category.name}`,
+        price: 0,
+        originalPrice: 0,
+        image: '', // We could add category images here if needed
+        category: '',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tags: [category.name.toLowerCase(), category.id.toLowerCase()],
+        metadata: {},
+        productCount: category.productCount // Adicionado para mostrar a contagem de produtos
+      })
+    })
+    
     // Clear cache when loading new data
     this.cache.clear()
     this.cacheTimeout.clear()
@@ -277,21 +344,35 @@ export class UnifiedSearchSystem {
           price: item.price,
           image: item.image,
           category: item.category,
-          relevanceScore
+          relevanceScore,
+          productCount: item.productCount // Incluir a contagem de produtos
         })
       }
     })
     
-    // Ordenar por relevância e limitar resultados
-    const sortedResults = results
+    // Ordenar por relevância
+    let sortedResults = results
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, limit)
+    
+    // Remover duplicatas mantendo apenas o item com maior relevância para cada ID
+    const uniqueResults: SearchResult[] = []
+    const seenIds = new Set<string>()
+    
+    for (const result of sortedResults) {
+      if (!seenIds.has(result.id)) {
+        seenIds.add(result.id)
+        uniqueResults.push(result)
+      }
+    }
+    
+    // Limitar resultados
+    const finalResults = uniqueResults.slice(0, limit)
     
     // Cache the results for 30 seconds
-    this.cache.set(cacheKey, sortedResults)
+    this.cache.set(cacheKey, finalResults)
     this.cacheTimeout.set(cacheKey, now + 30000) // 30 seconds
     
-    return sortedResults
+    return finalResults
   }
   
   // Atualizar cache
@@ -318,6 +399,57 @@ export class UnifiedSearchSystem {
   // Obter todos os itens
   public getAllItems(): ProductID[] {
     return [...this.allItems]
+  }
+  
+  // Método para contar produtos ativos por categoria principal
+  private getActiveProductCountByMainCategory(mainCategory: string): number {
+    // Carregar produtos do localStorage
+    const sections = [
+      'gang-boyz-products', // Produtos principais
+      'gang-boyz-test-products' // Produtos do admin
+    ]
+    
+    let allProducts: any[] = []
+    
+    sections.forEach(section => {
+      const data = localStorage.getItem(section)
+      if (data) {
+        try {
+          const items = JSON.parse(data)
+          if (Array.isArray(items)) {
+            allProducts = [...allProducts, ...items]
+          }
+        } catch (error) {
+          console.error(`Erro ao carregar ${section}:`, error)
+        }
+      }
+    })
+    
+    // Contar produtos ativos que pertencem à categoria principal
+    const activeProducts = allProducts.filter(product => {
+      if (!product.status || product.status !== 'ativo') return false
+      
+      if (!product.categories || !Array.isArray(product.categories)) return false
+      
+      return product.categories.some((category: string) => {
+        const normalizedCategory = category.toLowerCase().trim()
+        const normalizedMainCategory = mainCategory.toLowerCase().trim()
+        
+        // Correspondência direta
+        if (normalizedCategory === normalizedMainCategory) return true
+        
+        // Correspondência parcial
+        if (normalizedCategory.includes(normalizedMainCategory)) return true
+        
+        // Correspondência com hífens
+        if (normalizedCategory.replace(/\s+/g, '-') === normalizedMainCategory) return true
+        if (normalizedCategory === normalizedMainCategory.replace(/-/g, ' ')) return true
+        
+        return false
+      })
+    })
+    
+    return activeProducts.length
   }
 }
 

@@ -5,12 +5,15 @@ import { createContext, useContext, useState, ReactNode, useEffect } from "react
 interface EditModeContextType {
   isEditMode: boolean
   toggleEditMode: () => void
+  openBannerStripEditor: boolean
+  setOpenBannerStripEditor: (open: boolean) => void
 }
 
 const EditModeContext = createContext<EditModeContextType | undefined>(undefined)
 
 export function EditModeProvider({ children }: { children: ReactNode }) {
   const [isEditMode, setIsEditMode] = useState(false)
+  const [openBannerStripEditor, setOpenBannerStripEditor] = useState(false)
 
   // Initialize from localStorage on client side
   useEffect(() => {
@@ -30,8 +33,26 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Add keyboard shortcut to toggle edit mode (Ctrl+E or Cmd+E)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+E or Cmd+E
+      if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+        event.preventDefault()
+        toggleEditMode()
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleKeyDown)
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [isEditMode])
+
   return (
-    <EditModeContext.Provider value={{ isEditMode, toggleEditMode }}>
+    <EditModeContext.Provider value={{ isEditMode, toggleEditMode, openBannerStripEditor, setOpenBannerStripEditor }}>
       {children}
     </EditModeContext.Provider>
   )

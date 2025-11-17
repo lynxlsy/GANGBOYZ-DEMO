@@ -1,24 +1,26 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Heart, ShoppingBag, Edit3, Save, Plus, Edit, Trash2 } from "lucide-react"
-import { useState, useEffect } from "react"
-import { StandardProductCard } from "@/components/standard-product-card"
-import { AdminEditButton } from "@/components/admin-edit-button"
-import { AdminEditModal } from "@/components/admin-edit-modal"
-import { AdminProductModal } from "@/components/admin-product-modal"
-import { BannerRenderer } from "@/components/banner-renderer"
-import { useToast } from "@/hooks/use-toast"
+import React, { useState, useEffect } from "react"
+import { Search, User, Heart, ShoppingCart, Sparkles, Flame, ChevronDown, Menu, X, Home, Bell, Truck, Edit, Save, Trash2, Plus, Eye, EyeOff } from "lucide-react"
+import { Sidebar } from "@/components/sidebar"
+import { MobileLogoSection } from "@/components/mobile-logo-section"
 import { useCart } from "@/lib/cart-context"
-import { useUser } from "@/lib/user-context"
 import { useRouter } from "next/navigation"
+import { useProductPage } from "@/hooks/use-product-page"
+import { SearchBar } from "@/components/search-bar"
+import { UserDropdown } from "@/components/user-dropdown"
+import { useUser } from "@/lib/user-context"
 import { getContentById, updateContentById } from "@/lib/editable-content-utils"
-import { generateID } from "@/lib/unified-id-system"
-import { useEditMode } from "@/lib/edit-mode-context"
+import { toast, useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { eventManager } from "@/lib/event-manager"
 import { useProducts } from "@/lib/products-context-simple"
+import { editableContentSyncService } from "@/lib/editable-content-sync"
+import { useEditMode } from "@/lib/edit-mode-context"
+import { StandardProductCard } from "@/components/standard-product-card"
+import { AdminProductModal } from "@/components/admin-product-modal"
 
 interface Product {
   id: string
@@ -128,6 +130,16 @@ export function FeaturedProducts() {
       }
     }
 
+    // Firebase real-time listener for offers title
+    const unsubscribeFirebase = editableContentSyncService.listenToContentChanges("offers-title", (content) => {
+      if (content) {
+        setEditableTitle(content)
+        setEditingTitle(content)
+        // Dispatch event to notify other components
+        window.dispatchEvent(new Event('editableContentsUpdated'))
+      }
+    })
+
     // Event listeners
     window.addEventListener('hotProductsUpdated', handleHotProductsUpdated)
     window.addEventListener('storage', handleStorageChange)
@@ -137,6 +149,8 @@ export function FeaturedProducts() {
       window.removeEventListener('hotProductsUpdated', handleHotProductsUpdated)
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('editableContentsUpdated', handleEditableContentsChange)
+      // Clean up Firebase listener
+      unsubscribeFirebase()
     }
   }, [])
 
@@ -381,12 +395,9 @@ export function FeaturedProducts() {
         adminProductsArray.push(adminProduct);
         localStorage.setItem("gang-boyz-test-products", JSON.stringify(adminProductsArray));
         
-        // Emitir eventos para atualizar produtos em todas as páginas
-        eventManager.emitThrottled('forceProductsReload')
-        eventManager.emitThrottled('testProductCreated')
-        
-        // Dispatch event to notify other components
-        eventManager.emitThrottled('hotProductsUpdated')
+        // Dispatch events to force reload products in all pages
+        eventManager.emit('forceProductsReload')
+        eventManager.emit('testProductCreated')
       }
     } catch (error) {
       console.error('Error saving to localStorage:', error)
@@ -554,11 +565,11 @@ export function FeaturedProducts() {
       }
       
       // Dispatch events to force reload products in all pages
-      eventManager.emitThrottled('forceProductsReload')
-      eventManager.emitThrottled('testProductCreated')
+      eventManager.emit('forceProductsReload')
+      eventManager.emit('testProductCreated')
       
       // Dispatch event to notify other components
-      eventManager.emitThrottled('hotProductsUpdated')
+      eventManager.emit('hotProductsUpdated')
     } catch (error) {
       console.error('Erro ao remover produto:', error);
     }
@@ -691,13 +702,24 @@ export function FeaturedProducts() {
     setIsModalOpen(false)
   }
 
-  const handleSaveTitle = () => {
-    updateContentById("offers-title", editingTitle)
-    setEditableTitle(editingTitle)
-    toast({
-      title: "Título atualizado",
-      description: "O título da seção de ofertas foi atualizado com sucesso."
-    })
+  const handleSaveTitle = async () => {
+    try {
+      console.log('Saving offers title to Firebase:', editingTitle);
+      await updateContentById("offers-title", editingTitle);
+      setEditableTitle(editingTitle);
+      toast({
+        title: "Título atualizado",
+        description: "O título da seção de ofertas foi atualizado com sucesso."
+      });
+      console.log('Offers title saved successfully');
+    } catch (error) {
+      console.error('Error saving offers title:', error);
+      toast({
+        title: "Erro ao salvar título",
+        description: "Não foi possível salvar o título da seção de ofertas.",
+        variant: "destructive"
+      });
+    }
   }
 
   const handleCancelEdit = () => {

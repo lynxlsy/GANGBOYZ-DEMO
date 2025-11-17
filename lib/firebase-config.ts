@@ -135,33 +135,5 @@ if (isConfigValid) {
   storage = { type: 'mock-storage' };
 }
 
-// Test Firestore connection
-if (db && db.type !== 'mock-db') {
-  try {
-    // Import Firestore functions only if db is available
-    import("firebase/firestore").then(({ collection, getDocs }) => {
-      // Test connection by trying to access a collection
-      const testConnection = async () => {
-        try {
-          const testCollection = collection(db, 'test-connection');
-          await getDocs(testCollection);
-          if (process.env.NODE_ENV === 'development') {
-            console.log('✅ Firestore connection test successful');
-          }
-        } catch (error) {
-          console.warn('⚠️ Firestore connection test failed:', error);
-        }
-      };
-      
-      // Run test in development
-      if (process.env.NODE_ENV === 'development') {
-        testConnection();
-      }
-    });
-  } catch (error) {
-    console.warn('⚠️ Error testing Firestore connection:', error);
-  }
-}
-
 export { db, auth, storage };
 export default app;

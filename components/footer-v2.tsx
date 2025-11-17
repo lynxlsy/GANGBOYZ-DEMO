@@ -76,6 +76,7 @@ export function Footer() {
                 <li><a href="#" className="hover:text-white transition-colors">Política de Privacidade</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Termos de Uso</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Contato</a></li>
               </ul>
             </div>
 

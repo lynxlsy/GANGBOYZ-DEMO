@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { UploadResponse } from '@/lib/banner-types'
-import { firebaseStorageService } from '@/lib/firebase-storage-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,50 +31,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Converter para base64
+    // Converter para base64 (simulando upload para CDN)
     const arrayBuffer = await file.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
     const dataUrl = `data:${file.type};base64,${base64}`
     
     console.log('Upload debug - File type:', file.type, 'Size:', file.size, 'Data URL length:', dataUrl.length)
 
-    // Comprimir imagem se for muito grande
-    let optimizedDataUrl = dataUrl
-    if (dataUrl.length > 2 * 1024 * 1024) { // 2MB
-      console.log('⚠️ Imagem grande detectada, comprimindo...')
-      optimizedDataUrl = await compressImage(dataUrl, 0.7)
-      console.log('✅ Imagem comprimida. Novo tamanho:', optimizedDataUrl.length)
-    }
-    
-    // Ensure the data URL is valid
-    if (!optimizedDataUrl.startsWith('data:')) {
-      console.error('Invalid data URL generated:', optimizedDataUrl.substring(0, 100))
-      return NextResponse.json({ error: 'Erro ao processar a imagem' }, { status: 500 })
-    }
-    
-    // Upload para Firebase Storage
-    let imageUrl = optimizedDataUrl
-    try {
-      // Gerar nome único para o banner
-      const timestamp = Date.now()
-      const fileName = `banner_${timestamp}_${file.name}`
-      
-      // Upload para Firebase Storage
-      imageUrl = await firebaseStorageService.uploadImage(optimizedDataUrl, 'banners')
-      console.log('✅ Imagem enviada para Firebase Storage:', imageUrl)
-    } catch (firebaseError) {
-      console.warn('⚠️ Falha no upload para Firebase, usando data URL:', firebaseError)
-      // Continuar usando data URL como fallback
-    }
-
     // Obter dimensões da imagem
-    const dimensions = await getImageDimensions(imageUrl)
+    const dimensions = await getImageDimensions(dataUrl)
     
     // Gerar hash simples baseado no conteúdo
     const hash = generateSimpleHash(file.name + file.size + file.type + Date.now())
 
     const response: UploadResponse = {
-      url: imageUrl,
+      url: dataUrl,
       width: dimensions.width,
       height: dimensions.height,
       mime: file.type,
@@ -88,33 +58,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erro no upload:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
-  }
-}
-
-// Função para comprimir imagem
-async function compressImage(dataUrl: string, quality: number = 0.7): Promise<string> {
-  // For server-side compression, we'll use a simpler approach
-  // In a real implementation, you would use a library like sharp
-  // For now, we'll just reduce the quality by truncating the base64 string
-  // This is a simplified approach - in production you should use proper image compression
-  
-  try {
-    // Extract the base64 part
-    const base64Data = dataUrl.split(',')[1]
-    if (!base64Data) {
-      return dataUrl
-    }
-    
-    // Reduce the size by the quality factor (simplified approach)
-    const newLength = Math.floor(base64Data.length * quality)
-    const compressedBase64 = base64Data.substring(0, newLength)
-    
-    // Reconstruct the data URL
-    const mimeType = dataUrl.split(';')[0].split(':')[1]
-    return `data:${mimeType};base64,${compressedBase64}`
-  } catch (error) {
-    console.warn('Erro ao comprimir imagem, usando original:', error)
-    return dataUrl
   }
 }
 

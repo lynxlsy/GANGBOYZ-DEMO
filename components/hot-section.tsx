@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/lib/theme-context"
-import { Edit3, Trash2 } from "lucide-react"
+import { Edit3, Trash2, Save } from "lucide-react"
 import { toast } from "sonner"
 import { eventManager } from "@/lib/event-manager"
 import { useProducts } from "@/lib/products-context-simple"
 import { AdminProductModal } from "@/components/admin-product-modal"
+import { getContentById, updateContentById } from "@/lib/editable-content-utils"
+import { editableContentSyncService } from "@/lib/editable-content-sync"
 
 interface HotProduct {
   id: string
@@ -25,9 +27,14 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentProduct, setCurrentProduct] = useState<any>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [editableTitle, setEditableTitle] = useState("PRODUTOS EM DESTAQUE")
+  const [editableSubtitle, setEditableSubtitle] = useState("Os produtos mais vendidos e em alta")
+  const [editingTitle, setEditingTitle] = useState("PRODUTOS EM DESTAQUE")
+  const [editingSubtitle, setEditingSubtitle] = useState("Os produtos mais vendidos e em alta")
+  const [isEditingSection, setIsEditingSection] = useState(false) // New state to track section edit mode
   const { activeTheme } = useTheme()
   const { products } = useProducts()
-
+  
   // Carregar produtos HOT do localStorage e produtos destacados
   useEffect(() => {
     const loadHotProducts = () => {
@@ -65,8 +72,38 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
       setHotProducts(allHotProducts)
     }
 
+    // Carregar conteúdo editável
+    const loadEditableContent = async () => {
+      const titleContent = await getContentById("hot-title")
+      const subtitleContent = await getContentById("hot-subtitle")
+      
+      console.log("Initial load - titleContent:", titleContent, "subtitleContent:", subtitleContent);
+      
+      if (titleContent !== null) {
+        setEditableTitle(titleContent || "PRODUTOS EM DESTAQUE")
+      }
+      
+      if (subtitleContent !== null) {
+        setEditableSubtitle(subtitleContent || "Os produtos mais vendidos e em alta")
+      }
+    }
+
+    // Firebase real-time listener for hot section title and subtitle
+    const unsubscribeFirebaseTitle = editableContentSyncService.listenToContentChanges("hot-title", (content: string | null) => {
+      if (content !== null) { // Only update if content is not null
+        setEditableTitle(content || "PRODUTOS EM DESTAQUE") // Fallback to default if content is empty
+      }
+    })
+
+    const unsubscribeFirebaseSubtitle = editableContentSyncService.listenToContentChanges("hot-subtitle", (content: string | null) => {
+      if (content !== null) { // Only update if content is not null
+        setEditableSubtitle(content || "Os produtos mais vendidos e em alta") // Fallback to default if content is empty
+      }
+    })
+
     // Carregar inicialmente
     loadHotProducts()
+    loadEditableContent()
 
     // Escutar mudanças no localStorage
     const handleStorageChange = (e: StorageEvent) => {
@@ -95,6 +132,9 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
       window.removeEventListener('hotProductsUpdated', handleCustomStorageChange)
       window.removeEventListener('forceProductsReload', handleProductsUpdate)
       window.removeEventListener('testProductCreated', handleProductsUpdate)
+      // Clean up Firebase listeners
+      unsubscribeFirebaseTitle()
+      unsubscribeFirebaseSubtitle()
     }
   }, [products])
 
@@ -190,6 +230,49 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
     setIsModalOpen(true)
   }
 
+  // Funções para salvar título e subtítulo editáveis
+  const handleSaveTitle = async (newTitle: string) => {
+    try {
+      await updateContentById("hot-title", newTitle)
+      setEditableTitle(newTitle)
+      toast.success("Título atualizado com sucesso!")
+    } catch (error) {
+      console.error("Erro ao salvar título:", error)
+      toast.error("Erro ao atualizar título")
+    }
+  }
+
+  const handleSaveSubtitle = async (newSubtitle: string) => {
+    try {
+      await updateContentById("hot-subtitle", newSubtitle)
+      setEditableSubtitle(newSubtitle)
+      toast.success("Subtítulo atualizado com sucesso!")
+    } catch (error) {
+      console.error("Erro ao salvar subtítulo:", error)
+      toast.error("Erro ao atualizar subtítulo")
+    }
+  }
+
+  // Funções para salvar e cancelar edição do título e subtítulo
+  const handleSaveConfig = async () => {
+    try {
+      await updateContentById("hot-title", editingTitle)
+      await updateContentById("hot-subtitle", editingSubtitle)
+      setEditableTitle(editingTitle)
+      setEditableSubtitle(editingSubtitle)
+      setIsEditingSection(false); // Exit edit mode after saving
+      toast.success("O título e descrição da seção foram atualizados com sucesso.")
+    } catch (error) {
+      console.error("Erro ao salvar configuração:", error)
+      toast.error("Erro ao atualizar título e descrição")
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingTitle(editableTitle)
+    setEditingSubtitle(editableSubtitle)
+  }
+
   // Add function to save a product
   const handleSaveProduct = async (product: any) => {
     // Compress image before saving
@@ -277,28 +360,20 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
           sizes: productWithCompressedImage.availableSizes || ["P", "M", "G", "GG"],
           stock: totalUnits,
           sizeStock: Object.entries(sizeQuantities).reduce((acc, [size, qty]) => {
-            acc[size] = typeof qty === 'string' ? parseInt(qty) || 0 : typeof qty === 'number' ? qty : 0;
-            return acc;
+            acc[size] = typeof qty === 'string' ? parseInt(qty) || 0 : typeof qty === 'number' ? qty : 0
+            return acc
           }, {} as Record<string, number>),
-          discountPercentage: productWithCompressedImage.originalPrice && productWithCompressedImage.originalPrice > productWithCompressedImage.price 
-            ? Math.round(((productWithCompressedImage.originalPrice - productWithCompressedImage.price) / productWithCompressedImage.originalPrice) * 100)
-            : undefined,
-          installments: "3x sem juros",
-          brand: "Gang BoyZ",
-          isNew: productWithCompressedImage.destacarLancamentos || false,
-          isPromotion: productWithCompressedImage.destacarEmAlta || !!(productWithCompressedImage.originalPrice && productWithCompressedImage.originalPrice > productWithCompressedImage.price),
-          description: `${productWithCompressedImage.name} - Cor: ${productWithCompressedImage.color}`,
-          status: "ativo" as const,
-          availableUnits: totalUnits,
-          availableSizes: productWithCompressedImage.availableSizes || [],
-          recommendationCategory: productWithCompressedImage.recommendationCategory,
-          // Highlighting fields
-          destacarEmRecomendacoes: productWithCompressedImage.destacarEmRecomendacoes || false,
-          destacarEmOfertas: productWithCompressedImage.destacarEmOfertas || false,
-          destacarEmAlta: productWithCompressedImage.destacarEmAlta !== undefined ? productWithCompressedImage.destacarEmAlta : true,
-          destacarLancamentos: productWithCompressedImage.destacarLancamentos || false
+          // Adicionando campos extras necessários
+          weight: "300g",
+          dimensions: "70cm x 50cm",
+          material: "100% Algodão",
+          care: "Lavar à mão, não alvejar",
+          origin: "Brasil",
+          warranty: "90 dias contra defeitos",
+          // Configuração de destaque para produtos em alta
+          destacarEmAlta: true
         }
-
+        
         // Save to admin products
         const existingAdminProducts = localStorage.getItem("gang-boyz-test-products");
         let adminProductsArray: any[] = [];
@@ -307,12 +382,12 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
           adminProductsArray = JSON.parse(existingAdminProducts);
         }
         
-        // Check if product already exists
-        const adminExistingIndex = adminProductsArray.findIndex((p: any) => p.id === productId);
+        // Check if we're updating an existing admin product or adding a new one
+        const adminIndex = adminProductsArray.findIndex((p: any) => p.id === productId);
         
-        if (adminExistingIndex !== -1) {
+        if (adminIndex !== -1) {
           // Update existing admin product
-          adminProductsArray[adminExistingIndex] = adminProduct;
+          adminProductsArray[adminIndex] = adminProduct;
         } else {
           // Add new admin product
           adminProductsArray.push(adminProduct);
@@ -320,18 +395,13 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
         
         localStorage.setItem("gang-boyz-test-products", JSON.stringify(adminProductsArray));
         
-        // Instead of dispatching events that cause infinite loops, reload products directly
-        // This avoids the circular event loop while still updating the display
-        // Since loadHotProducts is not accessible here, we'll trigger the event that calls it
-        eventManager.emit('hotProductsUpdated');
+        // Dispatch events to force reload products in all pages
+        eventManager.emit('forceProductsReload')
+        eventManager.emit('testProductCreated')
       }
       
-      // Disparar evento para atualizar outros componentes (but not forceProductsReload to avoid loops)
+      // Disparar evento para atualizar outros componentes
       eventManager.emit('hotProductsUpdated')
-      
-      // Dispatch events to force reload products in all pages
-      eventManager.emitThrottled('forceProductsReload')
-      eventManager.emitThrottled('testProductCreated')
       
       toast.success("Produto salvo localmente! A alteração será sincronizada quando a conexão for restabelecida.")
     } catch (error) {
@@ -450,17 +520,67 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
       <section className="pt-24 pb-16 bg-black">
         <div className="container mx-auto px-4">
           {/* Título Hot */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              PRODUTOS EM DESTAQUE
-            </h2>
-            <div 
-              className="w-32 h-1 mx-auto rounded"
-              style={{ backgroundColor: `var(--primary-color)` }}
-            ></div>
-            <p className="text-neutral-400 mt-4 text-lg">
-              Os produtos mais vendidos e em alta
-            </p>
+          <div className="text-center mb-12 relative">
+            {isEditMode && isEditingSection ? (
+              <div className="mb-6">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <input
+                    value={editingTitle}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTitle(e.target.value)}
+                    className="text-3xl sm:text-4xl md:text-5xl font-bold text-white text-center bg-gray-800 border border-gray-600 rounded-md px-2 py-1 w-full max-w-full"
+                  />
+                  <Edit3 className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                </div>
+                <div className="flex justify-center gap-2 mt-2 flex-wrap">
+                  <Button onClick={handleSaveConfig} size="sm" className="bg-green-600 hover:bg-green-700">
+                    <Save className="h-4 w-4 mr-1" />
+                    Salvar
+                  </Button>
+                  <Button onClick={() => {
+                    handleCancelEdit();
+                    setIsEditingSection(false);
+                  }} variant="outline" size="sm" className="bg-gray-700 text-white hover:bg-gray-600">
+                    Cancelar
+                  </Button>
+                </div>
+                <div className="mt-4 px-4">
+                  <input
+                    value={editingSubtitle}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingSubtitle(e.target.value)}
+                    className="text-neutral-400 text-base sm:text-lg md:text-xl max-w-full mx-auto bg-gray-800 border border-gray-600 rounded-md px-2 py-1 text-center w-full"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
+                  {editableTitle}
+                </h2>
+                <div 
+                  className="w-16 sm:w-24 md:w-32 h-1 mx-auto rounded"
+                  style={{ backgroundColor: `var(--primary-color)` }}
+                ></div>
+                <p className="text-neutral-400 mt-4 text-base sm:text-lg md:text-xl px-4">
+                  {editableSubtitle}
+                </p>
+              </>
+            )}
+            {isEditMode && !isEditingSection && (
+              <div className="flex justify-center gap-4 mt-6 flex-wrap">
+                <Button
+                  onClick={() => {
+                    // Set the editing values to current editable values when clicking edit
+                    setEditingTitle(editableTitle);
+                    setEditingSubtitle(editableSubtitle);
+                    setIsEditingSection(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
+                >
+                  <Edit3 className="h-5 w-5" />
+                  Editar Seção
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Produtos em Destaque */}
@@ -472,11 +592,11 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                   <div key={product.id} className="w-full relative group">
                     <div className="bg-black overflow-hidden group hover:shadow-xl transition-all duration-300 cursor-pointer">
                       {/* Imagem */}
-                      <div className="w-full">
+                      <div className="relative w-full" style={{ paddingBottom: '133.33333333333%' }}>
                         <img
                           src={product.image || "/placeholder-default.svg"}
                           alt={product.name}
-                          className="w-full h-64 md:h-72 object-cover cursor-pointer"
+                          className="absolute inset-0 w-full h-full object-cover cursor-pointer"
                         />
                       </div>
                       
@@ -519,7 +639,8 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                 ))}
                 
                 {/* Botão de adicionar quando em modo de edição */}
-                {isEditMode && (
+                {/* Ocultando o botão de adicionar produto conforme solicitado */}
+                {/* {isEditMode && (
                   <div 
                     className="w-full flex items-center justify-center cursor-pointer group"
                     onClick={handleAddNewProduct}
@@ -534,7 +655,7 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                       </div>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
               
               {/* Mobile - Grid otimizado (2 cards por linha) */}
@@ -595,7 +716,8 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                   ))}
                   
                   {/* Botão de adicionar quando em modo de edição (Mobile) */}
-                  {isEditMode && (
+                  {/* Ocultando o botão de adicionar produto conforme solicitado */}
+                  {/* {isEditMode && (
                     <div 
                       className="relative group"
                       onClick={handleAddNewProduct}
@@ -608,7 +730,7 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
             </>

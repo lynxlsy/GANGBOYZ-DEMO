@@ -996,9 +996,6 @@ export function BannerAdmin({ storageKey, eventName, bannerConfigs, stripConfig,
                       </div>
                     </div>
                     <div className="mt-3 relative">
-                      <p className="text-xs text-gray-500 mb-2">
-                        ⚠️ Pode haver um pequeno delay após o upload até a imagem aparecer em todos os dispositivos.
-                      </p>
                       <Input
                         type="file"
                         accept="image/*"

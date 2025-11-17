@@ -24,9 +24,10 @@ interface ProductTemplateProps {
   className?: string
   isEditable?: boolean
   onEdit?: (product: Product) => void
+  disableSeasonHighlightsSelector?: boolean
 }
 
-export function ProductTemplate({ product, onAddToCart, className = "", isEditable = false, onEdit }: ProductTemplateProps) {
+export function ProductTemplate({ product, onAddToCart, className = "", isEditable = false, onEdit, disableSeasonHighlightsSelector = false }: ProductTemplateProps) {
   const [showSizes, setShowSizes] = useState(false)
   const { user, isFavorite, addToFavorites, removeFromFavorites } = useUser()
   const { state: cartState, addItem, removeItem } = useCart()
@@ -268,7 +269,7 @@ export function ProductTemplate({ product, onAddToCart, className = "", isEditab
         )}
         
         {/* Season Highlights Selector (apenas no modo de edição) */}
-        {isEditMode && (
+        {isEditMode && !disableSeasonHighlightsSelector && (
           <div className="mt-2">
             <SeasonHighlightsSelector 
               product={product} 

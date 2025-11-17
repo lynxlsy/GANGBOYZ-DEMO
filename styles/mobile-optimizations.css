@@ -4,7 +4,6 @@
 .touch-target {
   min-width: 44px;
   min-height: 44px;
-  touch-action: manipulation;
 }
 
 /* Scrollbar hide para mobile */
@@ -20,7 +19,6 @@
 /* Touch manipulation para melhor performance em mobile */
 .touch-manipulation {
   touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 /* Touch pan para scroll horizontal */
@@ -186,7 +184,6 @@
   background: rgba(255, 255, 255, 0.5);
   transition: background 0.3s ease;
   cursor: pointer;
-  touch-action: manipulation;
 }
 
 .mobile-carousel-indicator.active {
@@ -203,7 +200,6 @@
   border: 1px solid #374151;
   background: rgba(255, 255, 255, 0.1);
   color: white;
-  touch-action: manipulation;
 }
 
 .mobile-input:focus {
@@ -249,8 +245,14 @@
 .responsive-image {
   width: 100%;
   height: auto;
-  object-fit: cover;
+  object-fit: contain; /* Changed from cover to contain to preserve aspect ratios */
   image-rendering: -webkit-optimize-contrast;
+}
+
+/* Ensure banner images maintain their proper aspect ratios */
+.hero-section .responsive-image,
+.banner-renderer .responsive-image {
+  object-fit: contain;
 }
 
 /* Melhorias para containers responsivos */
@@ -391,3 +393,6 @@
     border-radius: 1rem;
   }
 }
+
+
+

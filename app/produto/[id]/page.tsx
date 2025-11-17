@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
+import { MobileHeaderSubcategory } from "@/components/mobile-header-subcategory"
 import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/lib/cart-context"
 import { useUser } from "@/lib/user-context"
-import { useToast } from "@/components/ui/use-toast"
-import { Heart, Share2, Truck, Shield, RotateCcw } from "lucide-react"
+import { toast } from "sonner"
+import { Heart, Share2, Truck, Shield, RotateCcw, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 interface Product {
   id: string
@@ -20,6 +21,7 @@ interface Product {
   image: string
   description: string
   category: string
+  color: string
   sizes: string[]
   stock: number
   material?: string
@@ -75,9 +77,12 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [cep, setCep] = useState("")
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null)
   const [loadingShipping, setLoadingShipping] = useState(false)
-  const { addItem, openCart } = useCart()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const { state, addItem, openCart } = useCart()
   const { user, favorites, addToFavorites, removeFromFavorites, isFavorite } = useUser()
-  const { toast } = useToast()
+
+  const router = useRouter()
 
   // Carregar produto
   useEffect(() => {
@@ -214,6 +219,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           image: foundProduct.image || "/placeholder-default.svg",
           description: foundProduct.description || "Produto premium da Gang BoyZ",
           category: foundProduct.category || "Produto",
+          color: foundProduct.color || "Preto",
           sizes: foundProduct.sizes || ["P", "M", "G", "GG"],
           stock: foundProduct.stock || Math.floor(Math.random() * 10) + 1,
           material: foundProduct.material || loadedProductInfoConfig.material,
@@ -240,29 +246,110 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   // Função para calcular frete
   const calculateShipping = async () => {
     if (!cep || cep.length !== 8) {
-      toast({
-        title: "Erro",
-        description: "CEP deve ter 8 dígitos",
-        variant: "destructive"
-      })
+      toast.error("CEP deve ter 8 dígitos")
       return
     }
 
     setLoadingShipping(true)
     
-    // Simular cálculo de frete
-    setTimeout(() => {
+    try {
+      // Fetch real address data from ViaCEP API
+      const cleanCep = cep.replace(/\D/g, '')
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch address data')
+      }
+      
+      const addressData = await response.json()
+      
+      // Check if CEP is valid
+      if (addressData.erro) {
+        toast.error("CEP não encontrado. Por favor, verifique o CEP informado.")
+        setLoadingShipping(false)
+        return
+      }
+      
+      // Calculate shipping cost based on state
+      const state = addressData.uf
+      let standardPrice = 15.90
+      let expressPrice = 25.90
+      let expressPlusPrice = 35.90
+      
+      if (state !== "SP") {
+        // Increase cost for other states
+        standardPrice = 20.90
+        expressPrice = 30.90
+        expressPlusPrice = 40.90
+        
+        // Further increase based on region
+        switch (state) {
+          case "RJ":
+          case "MG":
+          case "ES":
+            standardPrice = 22.90
+            expressPrice = 32.90
+            expressPlusPrice = 42.90
+            break
+          case "PR":
+          case "SC":
+          case "RS":
+            standardPrice = 25.90
+            expressPrice = 35.90
+            expressPlusPrice = 45.90
+            break
+          case "MS":
+          case "MT":
+          case "GO":
+          case "DF":
+            standardPrice = 27.90
+            expressPrice = 37.90
+            expressPlusPrice = 47.90
+            break
+          case "BA":
+          case "SE":
+          case "AL":
+          case "PE":
+          case "PB":
+          case "RN":
+            standardPrice = 29.90
+            expressPrice = 39.90
+            expressPlusPrice = 49.90
+            break
+          case "CE":
+          case "PI":
+          case "MA":
+            standardPrice = 32.90
+            expressPrice = 42.90
+            expressPlusPrice = 52.90
+            break
+          case "PA":
+          case "AP":
+          case "AM":
+          case "RR":
+          case "AC":
+          case "RO":
+          case "TO":
+            standardPrice = 35.90
+            expressPrice = 45.90
+            expressPlusPrice = 55.90
+            break
+        }
+      }
+      
       setShippingInfo({
-        standard: { name: "PAC", price: 15.90, days: "5-7 dias úteis" },
-        express: { name: "SEDEX", price: 25.90, days: "2-3 dias úteis" },
-        expressPlus: { name: "SEDEX 10", price: 35.90, days: "1 dia útil" }
+        standard: { name: "PAC", price: standardPrice, days: "5-7 dias úteis" },
+        express: { name: "SEDEX", price: expressPrice, days: "2-3 dias úteis" },
+        expressPlus: { name: "SEDEX 10", price: expressPlusPrice, days: "1 dia útil" }
       })
+      
+      toast.success(`Frete calculado para ${addressData.localidade}/${addressData.uf}`)
+    } catch (error) {
+      console.error("Error calculating shipping:", error)
+      toast.error("Erro ao calcular frete. Por favor, tente novamente.")
+    } finally {
       setLoadingShipping(false)
-      toast({
-        title: "Sucesso",
-        description: "Frete calculado com sucesso!"
-      })
-    }, 1500)
+    }
   }
 
   // Adicionar ao carrinho
@@ -270,11 +357,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     if (!product) return
     
     if (!selectedSize) {
-      toast({
-        title: "Erro",
-        description: "Selecione um tamanho",
-        variant: "destructive"
-      })
+      toast.error("Selecione um tamanho")
       return
     }
 
@@ -288,10 +371,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     })
     
     openCart()
-    toast({
-      title: "Produto adicionado",
-      description: `${product.name} foi adicionado ao carrinho!`
-    })
+    toast.success(`${product.name} foi adicionado ao carrinho!`)
   }
 
   // Ir para pagamento
@@ -299,35 +379,43 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     if (!product) return
     
     if (!selectedSize) {
-      toast({
-        title: "Erro",
-        description: "Selecione um tamanho",
-        variant: "destructive"
-      })
+      toast.error("Selecione um tamanho")
       return
     }
 
-    // Adicionar ao carrinho e ir para checkout
-    addItem({
+    // Create a single item for direct checkout
+    const checkoutItem = {
       id: typeof product.id === 'string' ? parseInt(product.id, 10) : product.id,
       name: product.name,
       price: product.price,
       image: product.image,
       size: selectedSize,
+      color: selectedColor || undefined,
       quantity: quantity
-    })
+    }
     
-    // Redirecionar para checkout
+    // Store the item in localStorage for checkout
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gang-boyz-checkout-items', JSON.stringify([checkoutItem]))
+      
+      // Save as ongoing checkout
+      const checkoutData = {
+        items: [checkoutItem],
+        formData: {},
+        timestamp: Date.now(),
+        subtotal: product.price * quantity
+      }
+      localStorage.setItem('gang-boyz-ongoing-checkout', JSON.stringify(checkoutData))
+    }
+    
+    // Redirect directly to checkout
     window.location.href = '/checkout'
   }
 
   // Toggle favorito
   const toggleFavorite = () => {
     if (!user) {
-      toast({
-        title: "Faça login",
-        description: "Faça login para curtir produtos"
-      })
+      toast("Faça login para curtir produtos")
       // Redirecionar para login
       window.location.href = '/auth/signin'
       return
@@ -335,16 +423,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
     if (isFavorite(product?.id || "")) {
       removeFromFavorites(product?.id || "")
-      toast({
-        title: "Removido",
-        description: "Produto removido dos favoritos"
-      })
+      toast.success("Produto removido dos favoritos")
     } else {
       addToFavorites(product?.id || "")
-      toast({
-        title: "Adicionado",
-        description: "Produto adicionado aos favoritos"
-      })
+      toast.success("Produto adicionado aos favoritos")
     }
   }
 
@@ -380,8 +462,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     <div className="min-h-screen bg-black text-white">
       <Header />
       
-      {/* Espaçamento para o header */}
-      <div className="h-[180px]"></div>
+      {/* Mobile Header for Product Page - Same as Subcategory Pages */}
+      <MobileHeaderSubcategory />
+      
+      {/* Black spacer for desktop header separation */}
+      <div className="hidden md:block h-20 bg-black"></div>
       
       <main className="pt-0">
         {/* Breadcrumb */}
@@ -415,10 +500,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               
               {/* Botões de Ação */}
               <div className="flex gap-3">
-                <Button
+                <button
                   onClick={toggleFavorite}
-                  variant="outline"
-                  className={`flex-1 ${
+                  className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 flex-1 ${
                     isFavorite(product.id) 
                       ? 'red-bg text-white border-red-500' 
                       : 'bg-transparent border-white/20 text-white hover:bg-white/10'
@@ -426,15 +510,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 >
                   <Heart className={`h-4 w-4 mr-2 ${isFavorite(product.id) ? 'fill-current' : ''}`} />
                   {isFavorite(product.id) ? 'Favoritado' : 'Favoritar'}
-                </Button>
+                </button>
                 
-                <Button
-                  variant="outline"
-                  className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                <button
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 bg-transparent border-white/20 text-white hover:bg-white/10"
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Compartilhar
-                </Button>
+                </button>
               </div>
             </div>
 
@@ -461,13 +544,6 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 
                 {/* Avaliação e Estoque */}
                 <div className="flex items-center gap-4 text-sm text-gray-400 mb-6">
-                  <div className="flex items-center gap-1">
-                    <div className="flex text-yellow-400">
-                      {'★'.repeat(5)}
-                    </div>
-                    <span className="text-white ml-1">(4.8)</span>
-                  </div>
-                  <span>•</span>
                   <span className="text-green-400">Em estoque</span>
                   <span>•</span>
                   <span>{product.stock} unidades</span>
@@ -494,6 +570,48 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 </div>
               </div>
 
+              {/* Seleção de Cor */}
+              <div>
+                <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Cores</h4>
+                <div className="flex flex-wrap gap-2">
+                  {product.color.split(',').map((color: string) => {
+                    // Map color names to actual color values
+                    const colorMap: Record<string, string> = {
+                      'Preto': 'bg-black',
+                      'Branco': 'bg-white',
+                      'Azul': 'bg-blue-500',
+                      'Rosa': 'bg-pink-500',
+                      'Bege': 'bg-amber-100',
+                      'Cinza': 'bg-gray-500',
+                      'Vermelho': 'bg-red-500',
+                      'Verde': 'bg-green-500',
+                      'Amarelo': 'bg-yellow-500',
+                      'Roxo': 'bg-purple-500',
+                      'Laranja': 'bg-orange-500',
+                      'Marrom': 'bg-amber-800'
+                    };
+                    
+                    const colorClass = colorMap[color.trim()] || 'bg-gray-500';
+                    const isSelected = selectedColor === color.trim();
+                    
+                    return (
+                      <button 
+                        key={color}
+                        onClick={() => setSelectedColor(isSelected ? null : color.trim())}
+                        className={`w-8 h-8 rounded-full ${colorClass} border-2 ${isSelected ? 'border-red-500' : 'border-gray-600'} flex items-center justify-center`}
+                        title={color.trim()}
+                      >
+                        {isSelected && (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-check h-4 w-4 text-white">
+                            <path d="M20 6 9 17l-5-5"></path>
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Quantidade */}
               <div>
                 <h3 className="text-lg font-semibold mb-3">Quantidade</h3>
@@ -507,8 +625,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     </button>
                     <span className="px-3 py-2 w-12 text-center">{quantity}</span>
                     <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-2 text-gray-400 hover:text-white transition-colors"
+                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                      disabled={quantity >= product.stock}
+                      className={`px-3 py-2 text-gray-400 hover:text-white transition-colors ${quantity >= product.stock ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       +
                     </button>
@@ -521,79 +640,26 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
               {/* Botões de Compra */}
               <div className="space-y-3">
-                <Button
+                <button
                   onClick={handleAddToCart}
-                  className="w-full red-bg hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-colors"
+                  disabled={!selectedSize || !selectedColor}
+                  className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-primary shadow-xs h-9 px-4 has-[>svg]:px-3 w-full red-bg hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-colors ${!selectedSize || !selectedColor ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   Adicionar ao Carrinho
-                </Button>
+                </button>
                 
-                <Button
+                <button
                   onClick={handleBuyNow}
-                  variant="outline"
-                  className="w-full bg-transparent border-white/20 text-white hover:bg-white/10 font-bold py-3 rounded-lg transition-colors"
+                  disabled={!selectedSize || !selectedColor}
+                  className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 w-full bg-white text-black hover:bg-gray-100 font-bold py-3 rounded-lg transition-colors ${!selectedSize || !selectedColor ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   Comprar Agora
-                </Button>
+                </button>
+                
+
               </div>
 
-              {/* Informações de Frete */}
-              <div className="border-t border-gray-800 pt-6">
-                <h3 className="text-lg font-semibold mb-4">Calcular Frete</h3>
-                <div className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={cep}
-                    onChange={(e) => setCep(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Digite seu CEP"
-                    className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-black placeholder-gray-500"
-                    maxLength={8}
-                  />
-                  <Button
-                    onClick={calculateShipping}
-                    disabled={loadingShipping}
-                    className="red-bg hover:bg-red-700 text-white font-medium px-6 rounded-lg transition-colors"
-                  >
-                    {loadingShipping ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      'Calcular'
-                    )}
-                  </Button>
-                </div>
-                
-                {shippingInfo && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                      <div>
-                        <div className="font-medium">{shippingInfo.standard.name}</div>
-                        <div className="text-sm text-gray-400">{shippingInfo.standard.days}</div>
-                      </div>
-                      <div className="font-medium">
-                        R$ {shippingInfo.standard.price.toFixed(2).replace('.', ',')}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-800">
-                      <div>
-                        <div className="font-medium">{shippingInfo.express.name}</div>
-                        <div className="text-sm text-gray-400">{shippingInfo.express.days}</div>
-                      </div>
-                      <div className="font-medium">
-                        R$ {shippingInfo.express.price.toFixed(2).replace('.', ',')}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <div>
-                        <div className="font-medium">{shippingInfo.expressPlus.name}</div>
-                        <div className="text-sm text-gray-400">{shippingInfo.expressPlus.days}</div>
-                      </div>
-                      <div className="font-medium">
-                        R$ {shippingInfo.expressPlus.price.toFixed(2).replace('.', ',')}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+
 
               {/* Informações Técnicas */}
               <div className="border-t border-gray-800 pt-6">
@@ -659,6 +725,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       </main>
 
       <Footer />
+      
+      {/* Empty fragment for removed modal */}
+      {/* The modal was removed as we now redirect directly to checkout */}
     </div>
   )
 }

@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Product } from "@/lib/products-context-simple"
 import { Upload, X, Plus } from "lucide-react"
 import { generateID } from "@/lib/unified-id-system"
-import { eventManager } from "@/lib/event-manager"
 
 interface AdminProductFormProps {
   onSave: (product: Product) => void
@@ -52,47 +51,26 @@ const AVAILABLE_SIZES = [
 
 export function AdminProductForm({ onSave, onCancel, initialData }: AdminProductFormProps) {
   const [formData, setFormData] = useState({
-    id: initialData?.id || generateID("product"),
-    name: initialData?.name || "",
-    price: initialData?.price || 0,
-    originalPrice: initialData?.originalPrice || 0,
-    stock: initialData?.stock || 0,
-    image: initialData?.image || "/placeholder-default.svg",
-    color: initialData?.color || "",
-    material: initialData?.material || "",
-    weight: initialData?.weight || "",
-    dimensions: initialData?.dimensions || "",
-    origin: initialData?.origin || "",
-    care: initialData?.care || "",
-    warranty: initialData?.warranty || "",
-    brand: initialData?.brand || "",
-    description: initialData?.description || "",
-    installments: initialData?.installments || "",
-    sizes: initialData?.sizes || [] as string[],
-    categories: initialData?.categories || [] as string[],
-    isNew: initialData?.isNew || false,
-    isPromotion: initialData?.isPromotion || false,
-    status: initialData?.status || "ativo" as "ativo" | "inativo",
-    sizeStock: initialData?.sizeStock || {} as Record<string, number>,
-    discountPercentage: initialData?.discountPercentage || undefined,
-    rating: initialData?.rating || undefined,
-    reviews: initialData?.reviews || undefined,
-    freeShippingText: initialData?.freeShippingText || "",
-    freeShippingThreshold: initialData?.freeShippingThreshold || "",
-    pickupText: initialData?.pickupText || "",
-    pickupStatus: initialData?.pickupStatus || "",
-    availableUnits: initialData?.availableUnits || undefined,
-    availableSizes: initialData?.availableSizes || undefined,
-    recommendationCategory: initialData?.recommendationCategory || "",
-    destacarEmRecomendacoes: initialData?.destacarEmRecomendacoes || false,
-    destacarEmOfertas: initialData?.destacarEmOfertas || false,
-    destacarEmAlta: initialData?.destacarEmAlta || false,
-    destacarLancamentos: initialData?.destacarLancamentos || false,
-    label: initialData?.label || "",
-    labelType: initialData?.labelType || ""
+    id: "",
+    name: "",
+    price: 0,
+    originalPrice: 0,
+    stock: 0,
+    image: "/placeholder-default.svg",
+    color: "",
+    material: "",
+    weight: "",
+    dimensions: "",
+    origin: "",
+    care: "",
+    warranty: ""
   })
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(initialData?.sizes || [])
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialData?.categories || [])
+  // Adicionando estado para estoque por tamanho
+  const [sizeStock, setSizeStock] = useState<SizeStock>(
+    (initialData as any)?.sizeStock || {}
+  )
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(formData.sizes)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(formData.categories)
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -103,12 +81,9 @@ export function AdminProductForm({ onSave, onCancel, initialData }: AdminProduct
 
   // Função para atualizar estoque por tamanho
   const handleSizeStockChange = (size: string, stock: number) => {
-    setFormData(prev => ({
+    setSizeStock(prev => ({
       ...prev,
-      sizeStock: {
-        ...prev.sizeStock,
-        [size]: stock
-      }
+      [size]: stock
     }))
   }
 
@@ -120,21 +95,17 @@ export function AdminProductForm({ onSave, onCancel, initialData }: AdminProduct
       
       // Se remover um tamanho, também remove o estoque associado
       if (!newSizes.includes(size)) {
-        setFormData(prevData => {
-          const newSizeStock = { ...prevData.sizeStock }
-          delete newSizeStock[size]
-          return {
-            ...prevData,
-            sizes: newSizes,
-            sizeStock: newSizeStock
-          }
+        setSizeStock(prevStock => {
+          const newStock = { ...prevStock }
+          delete newStock[size]
+          return newStock
         })
-      } else {
-        setFormData(prevData => ({
-          ...prevData,
-          sizes: newSizes
-        }))
       }
+      
+      setFormData(prevData => ({
+        ...prevData,
+        sizes: newSizes
+      }))
       
       return newSizes
     })
@@ -158,23 +129,37 @@ export function AdminProductForm({ onSave, onCancel, initialData }: AdminProduct
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validate required fields
-    if (!formData.name || !formData.price || !formData.image || selectedSizes.length === 0) {
+    if (!formData.name || !formData.price || !formData.image) {
       alert("Por favor, preencha todos os campos obrigatórios.")
       return
     }
-    
-    // Create the product object
+
+    if (selectedSizes.length === 0) {
+      alert("Selecione pelo menos um tamanho.")
+      return
+    }
+
+    if (selectedCategories.length === 0) {
+      alert("Selecione pelo menos uma categoria.")
+      return
+    }
+
+    if (!formData.color) {
+      alert("Selecione uma cor.")
+      return
+    }
+
     const productToSave: Product = {
       ...formData,
       sizes: selectedSizes,
-      categories: selectedCategories
-    }
+      categories: selectedCategories,
+      sizeStock: sizeStock
+    } as Product
 
     onSave(productToSave)
     
-    // Emitir evento para atualizar produtos em todas as páginas
-    eventManager.emitThrottled('testProductCreated');
+    // Dispatch event to notify that a product was created
+    window.dispatchEvent(new Event('testProductCreated'))
   }
 
   return (
@@ -371,58 +356,42 @@ export function AdminProductForm({ onSave, onCancel, initialData }: AdminProduct
             </p>
           </div>
 
-          {/* Estoque por tamanho */}
+          {/* Estoque por Tamanho */}
           {selectedSizes.length > 0 && (
             <div className="space-y-2">
               <Label>Estoque por Tamanho</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {selectedSizes.map((size) => (
                   <div key={size} className="flex items-center gap-2">
-                    <span className="w-12 text-sm font-medium text-gray-700">{size}:</span>
+                    <span className="text-sm font-medium text-gray-700 w-8">{size}:</span>
                     <Input
                       type="number"
                       min="0"
-                      value={formData.sizeStock[size] || 0}
+                      value={sizeStock[size] || 0}
                       onChange={(e) => handleSizeStockChange(size, parseInt(e.target.value) || 0)}
                       className="w-20"
+                      placeholder="0"
                     />
+                    <span className="text-sm text-gray-500">unid.</span>
                   </div>
                 ))}
               </div>
+              <p className="text-sm text-gray-500">
+                Defina a quantidade disponível para cada tamanho
+              </p>
             </div>
           )}
 
-          {/* Categorias */}
+          {/* Cor */}
           <div className="space-y-2">
-            <Label>Categorias</Label>
-            <div className="flex flex-wrap gap-2">
-              {AVAILABLE_CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => handleCategoryToggle(category)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                    selectedCategories.includes(category)
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cores */}
-          <div className="space-y-2">
-            <Label>Cor</Label>
-            <div className="flex flex-wrap gap-2">
+            <Label>Cor *</Label>
+            <div className="grid grid-cols-5 gap-2">
               {AVAILABLE_COLORS.map((color) => (
                 <button
                   key={color}
                   type="button"
                   onClick={() => handleInputChange("color", color)}
-                  className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
                     formData.color === color
                       ? "bg-blue-500 text-white border-blue-500"
                       : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
@@ -434,130 +403,126 @@ export function AdminProductForm({ onSave, onCancel, initialData }: AdminProduct
             </div>
           </div>
 
-          {/* Informações Adicionais */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="material">Material</Label>
-              <Input
-                id="material"
-                value={formData.material}
-                onChange={(e) => handleInputChange("material", e.target.value)}
-                placeholder="100% Algodão"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="weight">Peso</Label>
-              <Input
-                id="weight"
-                value={formData.weight}
-                onChange={(e) => handleInputChange("weight", e.target.value)}
-                placeholder="300g"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="dimensions">Dimensões</Label>
-              <Input
-                id="dimensions"
-                value={formData.dimensions}
-                onChange={(e) => handleInputChange("dimensions", e.target.value)}
-                placeholder="70cm x 50cm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="origin">Origem</Label>
-              <Input
-                id="origin"
-                value={formData.origin}
-                onChange={(e) => handleInputChange("origin", e.target.value)}
-                placeholder="Brasil"
-              />
-            </div>
-          </div>
-
+          {/* Categorias */}
           <div className="space-y-2">
-            <Label htmlFor="care">Instruções de Cuidado</Label>
-            <Input
-              id="care"
-              value={formData.care}
-              onChange={(e) => handleInputChange("care", e.target.value)}
-              placeholder="Lavar à mão, não alvejar"
-            />
+            <Label>Categorias *</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {AVAILABLE_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => handleCategoryToggle(category)}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    selectedCategories.includes(category)
+                      ? "bg-green-500 text-white border-green-500"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="warranty">Garantia</Label>
-            <Input
-              id="warranty"
-              value={formData.warranty}
-              onChange={(e) => handleInputChange("warranty", e.target.value)}
-              placeholder="90 dias contra defeitos"
-            />
-          </div>
-
-          {/* Destaques */}
+          {/* Informações Técnicas */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Destaques</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  id="isNew"
-                  type="checkbox"
-                  checked={formData.isNew}
-                  onChange={(e) => handleInputChange("isNew", e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            <h3 className="text-lg font-semibold text-gray-900">Informações Técnicas</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="material">Material</Label>
+                <Input
+                  id="material"
+                  value={formData.material}
+                  onChange={(e) => handleInputChange("material", e.target.value)}
+                  placeholder="Ex: 100% Algodão"
                 />
-                <Label htmlFor="isNew">Novo Lançamento</Label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  id="isPromotion"
-                  type="checkbox"
-                  checked={formData.isPromotion}
-                  onChange={(e) => handleInputChange("isPromotion", e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              <div className="space-y-2">
+                <Label htmlFor="weight">Peso</Label>
+                <Input
+                  id="weight"
+                  value={formData.weight}
+                  onChange={(e) => handleInputChange("weight", e.target.value)}
+                  placeholder="Ex: 300g"
                 />
-                <Label htmlFor="isPromotion">Em Promoção</Label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  id="destacarEmRecomendacoes"
-                  type="checkbox"
-                  checked={formData.destacarEmRecomendacoes}
-                  onChange={(e) => handleInputChange("destacarEmRecomendacoes", e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              <div className="space-y-2">
+                <Label htmlFor="dimensions">Dimensões</Label>
+                <Input
+                  id="dimensions"
+                  value={formData.dimensions}
+                  onChange={(e) => handleInputChange("dimensions", e.target.value)}
+                  placeholder="Ex: 70cm x 50cm"
                 />
-                <Label htmlFor="destacarEmRecomendacoes">Destacar em Recomendações</Label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  id="destacarEmAlta"
-                  type="checkbox"
-                  checked={formData.destacarEmAlta}
-                  onChange={(e) => handleInputChange("destacarEmAlta", e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              <div className="space-y-2">
+                <Label htmlFor="origin">Origem</Label>
+                <Input
+                  id="origin"
+                  value={formData.origin}
+                  onChange={(e) => handleInputChange("origin", e.target.value)}
+                  placeholder="Ex: Brasil"
                 />
-                <Label htmlFor="destacarEmAlta">Destacar em "Em Alta"</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="care">Cuidados</Label>
+                <Input
+                  id="care"
+                  value={formData.care}
+                  onChange={(e) => handleInputChange("care", e.target.value)}
+                  placeholder="Ex: Lavar à mão, não alvejar"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="warranty">Garantia</Label>
+                <Input
+                  id="warranty"
+                  value={formData.warranty}
+                  onChange={(e) => handleInputChange("warranty", e.target.value)}
+                  placeholder="Ex: 90 dias contra defeitos"
+                />
               </div>
             </div>
+            <p className="text-sm text-gray-500">
+              Estas informações aparecerão na página de detalhes do produto
+            </p>
           </div>
 
-          {/* Botões de Ação */}
-          <div className="flex justify-end space-x-3 pt-4">
+          {/* Status do Produto */}
+          <div className="flex gap-6">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formData.isNew}
+                onChange={(e) => handleInputChange("isNew", e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Produto Novo</span>
+            </label>
+
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formData.isPromotion}
+                onChange={(e) => handleInputChange("isPromotion", e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Em Promoção</span>
+            </label>
+          </div>
+
+          {/* Botões */}
+          <div className="flex gap-4 justify-end">
             <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
             <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Produto
+              Salvar Produto
             </Button>
           </div>
         </form>

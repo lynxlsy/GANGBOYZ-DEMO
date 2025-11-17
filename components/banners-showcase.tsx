@@ -55,7 +55,14 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [currentProduct, setCurrentProduct] = useState<any>(null)
   const [isEditingProduct, setIsEditingProduct] = useState(false)
+  // Add state for about section
+  const [aboutTitle, setAboutTitle] = useState("Sobre a Gang Boyz")
+  const [aboutDescription, setAboutDescription] = useState("A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.")
+  const [editingAboutTitle, setEditingAboutTitle] = useState("")
+  const [editingAboutDescription, setEditingAboutDescription] = useState("")
+  const [isEditingAboutSection, setIsEditingAboutSection] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bannerContainerRef = useRef<HTMLDivElement>(null)
 
   // Carregar banners do localStorage
   useEffect(() => {
@@ -101,6 +108,19 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
         setEditableDescription(descriptionContent);
         setEditingDescription(descriptionContent);
       }
+      
+      // Carregar conteúdo da seção "Sobre a Gang Boyz"
+      const aboutTitleContent = await getContentByIdAsync("about-gang-boyz-title");
+      if (aboutTitleContent) {
+        setAboutTitle(aboutTitleContent);
+        setEditingAboutTitle(aboutTitleContent);
+      }
+      
+      const aboutDescriptionContent = await getContentByIdAsync("about-gang-boyz-description");
+      if (aboutDescriptionContent) {
+        setAboutDescription(aboutDescriptionContent);
+        setEditingAboutDescription(aboutDescriptionContent);
+      }
     }
 
     // Função para recarregar todos os dados
@@ -133,19 +153,169 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
       loadEditableConfig();
     }
 
+    // Event listener for opening product edit modal
+    const handleOpenProductEditModal = (e: CustomEvent) => {
+      const product = e.detail;
+      setCurrentProduct(product);
+      setIsEditingProduct(!!product.id); // If product has id, we're editing, otherwise creating
+      setIsProductModalOpen(true);
+    };
+
     // Event listeners
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('showcaseBannersUpdated', handleShowcaseBannersUpdated);
     window.addEventListener('destaquesConfigUpdated', handleDestaquesConfigUpdated);
     window.addEventListener('editableContentsUpdated', handleDestaquesConfigUpdated);
+    window.addEventListener('openProductEditModal', handleOpenProductEditModal as EventListener);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('showcaseBannersUpdated', handleShowcaseBannersUpdated);
       window.removeEventListener('destaquesConfigUpdated', handleDestaquesConfigUpdated);
       window.removeEventListener('editableContentsUpdated', handleDestaquesConfigUpdated);
+      window.removeEventListener('openProductEditModal', handleOpenProductEditModal as EventListener);
     }
   }, []);
+
+  // Initialize scroll position for infinite scroll
+  useEffect(() => {
+    if (banners.length > 0 && bannerContainerRef.current) {
+      // Set initial scroll position to the middle of the duplicated banners
+      // This ensures we start with the first set of banners and have room to scroll in both directions
+      const container = bannerContainerRef.current;
+      const scrollWidth = container.scrollWidth;
+      const halfScrollWidth = scrollWidth / 2;
+      // Start slightly offset to avoid edge cases
+      container.scrollLeft = halfScrollWidth / 2 + 10;
+    }
+  }, [banners]);
+
+  // Auto-scroll functionality
+  useEffect(() => {
+    if (!bannerContainerRef.current || banners.length === 0) return;
+
+    let autoScrollInterval: NodeJS.Timeout | null = null;
+    let isUserScrolling = false;
+    let scrollEndTimer: NodeJS.Timeout | null = null;
+    
+    // Function to handle auto scroll
+    const autoScroll = () => {
+      if (!isUserScrolling && bannerContainerRef.current) {
+        const container = bannerContainerRef.current;
+        const scrollAmount = 300; // Width of one banner card
+        container.scrollBy({
+          left: scrollAmount,
+          behavior: 'smooth'
+        });
+      }
+    };
+    
+    // Start auto scroll after 1 second
+    const startAutoScroll = () => {
+      autoScrollInterval = setInterval(autoScroll, 1000);
+    };
+    
+    // Clear interval
+    const clearAutoScroll = () => {
+      if (autoScrollInterval) {
+        clearInterval(autoScrollInterval);
+        autoScrollInterval = null;
+      }
+    };
+    
+    // Handle user scroll events - DISABLE auto-scroll completely on user interaction
+    const handleUserScrollStart = () => {
+      isUserScrolling = true;
+      clearAutoScroll();
+      
+      // Clear existing timer
+      if (scrollEndTimer) {
+        clearTimeout(scrollEndTimer);
+        scrollEndTimer = null;
+      }
+    };
+    
+    // DON'T restart auto-scroll after user interaction - keep it disabled
+    const handleUserScrollEnd = () => {
+      // Keep auto-scroll disabled permanently after user interaction
+      isUserScrolling = true;
+      clearAutoScroll();
+    };
+    
+    // Add event listeners
+    const container = bannerContainerRef.current;
+    container.addEventListener('scroll', handleUserScrollStart);
+    
+    // Check if scrollend event is supported, if not use scroll with debounce
+    if ('onscrollend' in window) {
+      container.addEventListener('scrollend', handleUserScrollEnd);
+    } else {
+      // Fallback: use scroll event with debounce
+      let scrollTimer: NodeJS.Timeout;
+      const handleScrollFallback = () => {
+        handleUserScrollStart();
+        clearTimeout(scrollTimer);
+        // Don't restart auto-scroll even with fallback
+        scrollTimer = setTimeout(handleUserScrollEnd, 100);
+      };
+      container.addEventListener('scroll', handleScrollFallback);
+    }
+    
+    // Start auto scroll initially
+    const initialStartTimer = setTimeout(startAutoScroll, 1000);
+    
+    // Clean up
+    return () => {
+      clearTimeout(initialStartTimer);
+      clearAutoScroll();
+      if (scrollEndTimer) {
+        clearTimeout(scrollEndTimer);
+      }
+      container.removeEventListener('scroll', handleUserScrollStart);
+      container.removeEventListener('scrollend', handleUserScrollEnd);
+    };
+  }, [banners]);
+
+  // Throttle scroll handler for better performance
+  const throttledHandleBannerScroll = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    let ticking = false;
+    
+    const throttle = (func: () => void) => {
+      return function() {
+        if (!ticking) {
+          requestAnimationFrame(() => {
+            func();
+            ticking = false;
+          });
+          ticking = true;
+        }
+      };
+    };
+    
+    throttledHandleBannerScroll.current = throttle(handleBannerScroll);
+  }, [banners]);
+
+  // Handle infinite scroll by jumping between duplicate sets
+  const handleBannerScroll = () => {
+    if (bannerContainerRef.current && banners.length > 0) {
+      const container = bannerContainerRef.current;
+      const scrollPosition = container.scrollLeft;
+      const scrollWidth = container.scrollWidth;
+      const halfScrollWidth = scrollWidth / 2;
+      
+      // Infinite scroll - when we reach near the end, jump to the beginning
+      // But only jump when we're actually at the edge to prevent jumping during normal scrolling
+      if (scrollPosition >= scrollWidth - container.clientWidth - 10) {
+        // At the end, jump to the beginning
+        container.scrollLeft = scrollPosition - halfScrollWidth;
+      } else if (scrollPosition <= 10) {
+        // At the beginning, jump to the end
+        container.scrollLeft = scrollPosition + halfScrollWidth;
+      }
+    }
+  }
 
   const handleSaveConfig = () => {
     updateContentById("season-highlights-title", editingTitle);
@@ -186,6 +356,61 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
   const handleCancelEdit = () => {
     setEditingTitle(editableTitle)
     setEditingDescription(editableDescription)
+  }
+
+  // Function to start editing about section
+  const handleEditAboutSection = () => {
+    setEditingAboutTitle(aboutTitle)
+    setEditingAboutDescription(aboutDescription)
+    setIsEditingAboutSection(true)
+  }
+
+  // Function to save about section edits
+  const handleSaveAboutSection = () => {
+    // Save to state
+    setAboutTitle(editingAboutTitle)
+    setAboutDescription(editingAboutDescription)
+    
+    // Save to localStorage/backend
+    updateContentById("about-gang-boyz-title", editingAboutTitle);
+    updateContentById("about-gang-boyz-description", editingAboutDescription);
+    
+    // Also save to backend
+    try {
+      fetch('/api/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          id: 'about-gang-boyz-title', 
+          content: editingAboutTitle 
+        }),
+      });
+      
+      fetch('/api/content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          id: 'about-gang-boyz-description', 
+          content: editingAboutDescription 
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving about section to backend:', error);
+    }
+    
+    setIsEditingAboutSection(false)
+    toast.success("Seção 'Sobre a Gang Boyz' atualizada com sucesso.");
+  }
+
+  // Function to cancel about section edit
+  const handleCancelAboutSection = () => {
+    setEditingAboutTitle(aboutTitle)
+    setEditingAboutDescription(aboutDescription)
+    setIsEditingAboutSection(false)
   }
 
   // Function to start editing banner texts
@@ -397,8 +622,8 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
         
         localStorage.setItem("gang-boyz-dev-products", JSON.stringify(devProductsArray));
         
-        // Emitir evento para atualizar produtos em todas as páginas
-        eventManager.emitThrottled('forceProductsReload');
+        // Dispatch events to force reload products in all pages
+        window.dispatchEvent(new CustomEvent('forceProductsReload'))
         window.dispatchEvent(new CustomEvent('testProductCreated'))
       }
       
@@ -414,53 +639,6 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
     
     // Close modal
     setIsProductModalOpen(false)
-  }
-
-  // Function to handle adding a new product
-  const handleAddNewProduct = () => {
-    // Create a default product for the modal with proper ID
-    const defaultProduct = {
-      id: `hot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: "",
-      description: "",
-      price: 0,
-      originalPrice: 0,
-      image: "/placeholder-default.svg",
-      color: "", // No default color - user must select
-      category: "Em Alta", // Correct category
-      subcategory: "em-alta", // Subcategory for EM ALTA
-      label: "", // Default label
-      labelType: undefined, // Default label type
-      stock: 0, // No default stock
-      sizeStock: {}, // Empty size stock
-      // Recommendation fields for hot products
-      availableUnits: 0,
-      availableSizes: [], // No default sizes - user must select
-      sizeQuantities: {}, // Empty size quantities
-      recommendationCategory: "", // User must select category
-      recommendationSubcategory: "", // User must select subcategory
-      // Automatically check the destacar checkbox for hot products
-      destacarEmRecomendacoes: false,
-      destacarEmOfertas: false,
-      destacarEmAlta: true,
-      destacarLancamentos: false,
-      isActive: true,
-      // Product info fields with default values
-      freeShippingText: "Frete Grátis",
-      freeShippingThreshold: "Acima de R$ 200",
-      pickupText: "Retire na Loja",
-      pickupStatus: "Disponível",
-      material: "100% Algodão",
-      weight: "300g",
-      dimensions: "70cm x 50cm",
-      origin: "Brasil",
-      care: "Lavar à mão, não alvejar",
-      warranty: "90 dias contra defeitos"
-    }
-    
-    setCurrentProduct(defaultProduct);
-    setIsEditingProduct(false);
-    setIsProductModalOpen(true);
   }
 
   // Function to cancel banner text editing
@@ -524,6 +702,7 @@ export default function ${title.replace(/\s+/g, '')}Page() {
     </div>
   )
 }
+
 `
     return { slug, pageContent }
   }
@@ -680,78 +859,194 @@ export default function ${title.replace(/\s+/g, '')}Page() {
               </p>
             </>
           )}
+          {/* Add Edit and Add Banner buttons for the section */}
+          {isEditMode && (
+            <div className="flex justify-center gap-4 mt-6">
+              <Button
+                onClick={() => {
+                  // Switch to edit mode for the section title and description
+                  const titleInput = document.querySelector('input[value="' + editableTitle + '"]') as HTMLInputElement;
+                  if (titleInput) {
+                    titleInput.focus();
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
+              >
+                <Edit3 className="h-5 w-5" />
+                Editar Seção
+              </Button>
+              <Button
+                onClick={() => {
+                  // Create a new banner with default values
+                  const bannerId = 'banner-' + Date.now()
+                  const defaultTitle = "Novo Destaque"
+                  
+                  // Generate a slug for the new page
+                  const slug = defaultTitle
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\w\-]+/g, '')
+                  
+                  const newBanner: ShowcaseBanner = {
+                    id: bannerId,
+                    title: defaultTitle,
+                    subtitle: "Subtítulo",
+                    description: "Descrição do novo destaque da temporada",
+                    image: "/placeholder-default.svg",
+                    link: '/explore/' + slug, // Link to the dynamic explore page
+                    buttonText: "EXPLORAR",
+                    overlayColor: "from-black"
+                  }
+                  
+                  // Add the new banner to the list
+                  const updatedBanners = [...banners, newBanner]
+                  setBanners(updatedBanners)
+                  localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
+                  
+                  // Also save to backend
+                  try {
+                    fetch('/api/content', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ 
+                        id: 'gang-boyz-showcase-banners', 
+                        content: JSON.stringify(updatedBanners) 
+                      }),
+                    });
+                  } catch (error) {
+                    console.error('Error saving banners to backend:', error);
+                  }
+                  
+                  window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
+                  toast.success("Novo banner adicionado com sucesso! A página será acessível via o link do banner.")
+                }}
+                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Adicionar Banner
+              </Button>
+            </div>
+          )}
         </div>
-
-        {/* Add new banner button in edit mode */}
-        {isEditMode && (
-          <div className="mb-6 flex justify-center">
-            <Button
-              onClick={() => {
-                // Create a new banner with default values
-                const bannerId = `banner-${Date.now()}`
-                const defaultTitle = "Novo Destaque"
-                
-                // Generate a slug for the new page
-                const slug = defaultTitle
-                  .toLowerCase()
-                  .replace(/\s+/g, '-')
-                  .replace(/[^\w\-]+/g, '')
-                
-                const newBanner: ShowcaseBanner = {
-                  id: bannerId,
-                  title: defaultTitle,
-                  subtitle: "Subtítulo",
-                  description: "Descrição do novo destaque da temporada",
-                  image: "/placeholder-default.svg",
-                  link: `/explore/${slug}`, // Link to the dynamic explore page
-                  buttonText: "EXPLORAR",
-                  overlayColor: "from-black"
-                }
-                
-                // Add the new banner to the list
-                const updatedBanners = [...banners, newBanner]
-                setBanners(updatedBanners)
-                localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
-                
-                // Also save to backend
-                try {
-                  fetch('/api/content', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                      id: 'gang-boyz-showcase-banners', 
-                      content: JSON.stringify(updatedBanners) 
-                    }),
-                  });
-                } catch (error) {
-                  console.error('Error saving banners to backend:', error);
-                }
-                
-                window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
-                toast.success("Novo banner adicionado com sucesso! A página será acessível via o link do banner.")
-              }}
-              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold flex items-center gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              Adicionar Novo Destaque
-            </Button>
-          </div>
-        )}
 
         {/* Product Cards Section */}
         <div className="mb-12">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-white">Produtos em Destaque</h3>
             {isEditMode && (
-              <Button 
-                onClick={handleAddNewProduct}
-                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold flex items-center gap-2"
-              >
-                <Plus className="h-5 w-5" />
-                Adicionar Produto
-              </Button>
+              <div className="flex gap-2">
+                {/* Hidden button - Adicionar Produto */}
+                {/*
+                <Button 
+                  onClick={() => {
+                    // Create a default product for the modal with proper ID
+                    const defaultProduct = {
+                      id: 'hot-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                      name: "",
+                      description: "",
+                      price: 0,
+                      originalPrice: 0,
+                      image: "/placeholder-default.svg",
+                      color: "", // No default color - user must select
+                      category: "Em Alta", // Correct category
+                      subcategory: "em-alta", // Subcategory for EM ALTA
+                      label: "", // Default label
+                      labelType: undefined, // Default label type
+                      stock: 0, // No default stock
+                      sizeStock: {}, // Empty size stock
+                      // Recommendation fields for hot products
+                      availableUnits: 0,
+                      availableSizes: [], // No default sizes - user must select
+                      sizeQuantities: {}, // Empty size quantities
+                      recommendationCategory: "", // User must select category
+                      recommendationSubcategory: "", // User must select subcategory
+                      // Automatically check the destacar checkbox for hot products
+                      destacarEmRecomendacoes: false,
+                      destacarEmOfertas: false,
+                      destacarEmAlta: true,
+                      destacarLancamentos: false,
+                      isActive: true,
+                      // Product info fields with default values
+                      freeShippingText: "Frete Grátis",
+                      freeShippingThreshold: "Acima de R$ 200",
+                      pickupText: "Retire na Loja",
+                      pickupStatus: "Disponível",
+                      material: "100% Algodão",
+                      weight: "300g",
+                      dimensions: "70cm x 50cm",
+                      origin: "Brasil",
+                      care: "Lavar à mão, não alvejar",
+                      warranty: "90 dias contra defeitos"
+                    }
+                    
+                    // Emit event to open the product modal with the default product
+                    window.dispatchEvent(new CustomEvent('openProductEditModal', {
+                      detail: defaultProduct
+                    }))
+                  }}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold flex items-center gap-2"
+                >
+                  <Plus className="h-5 w-5" />
+                  Adicionar Produto
+                </Button>
+                */}
+                
+                {/* New button to add a new banner card */}
+                <Button
+                  onClick={() => {
+                    // Create a new banner with default values
+                    const bannerId = 'banner-' + Date.now()
+                    const defaultTitle = "Novo Destaque"
+                    
+                    // Generate a slug for the new page
+                    const slug = defaultTitle
+                      .toLowerCase()
+                      .replace(/\s+/g, '-')
+                      .replace(/[^\w\-]+/g, '')
+                    
+                    const newBanner: ShowcaseBanner = {
+                      id: bannerId,
+                      title: defaultTitle,
+                      subtitle: "Subtítulo",
+                      description: "Descrição do novo destaque da temporada",
+                      image: "/placeholder-default.svg",
+                      link: '/explore/' + slug, // Link to the dynamic explore page
+                      buttonText: "EXPLORAR",
+                      overlayColor: "from-black"
+                    }
+                    
+                    // Add the new banner to the list
+                    const updatedBanners = [...banners, newBanner]
+                    setBanners(updatedBanners)
+                    localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
+                    
+                    // Also save to backend
+                    try {
+                      fetch('/api/content', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                          id: 'gang-boyz-showcase-banners', 
+                          content: JSON.stringify(updatedBanners) 
+                        }),
+                      });
+                    } catch (error) {
+                      console.error('Error saving banners to backend:', error);
+                    }
+                    
+                    window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
+                    toast.success("Novo banner adicionado com sucesso! A página será acessível via o link do banner.")
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold flex items-center gap-2"
+                >
+                  <Plus className="h-5 w-5" />
+                  Adicionar Banner
+                </Button>
+              </div>
             )}
           </div>
           
@@ -761,11 +1056,18 @@ export default function ${title.replace(/\s+/g, '')}Page() {
 
         {/* Product Search Modal - Removido conforme solicitado */}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {banners.map((banner, index) => (
+        <div 
+          ref={bannerContainerRef}
+          className="flex overflow-x-auto pb-4 -mx-4 px-4 md:grid md:grid-cols-2 lg:grid-cols-3 gap-8 md:block md:overflow-visible md:mx-0 md:px-0" 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', scrollBehavior: 'smooth' }}
+          onScroll={throttledHandleBannerScroll.current || handleBannerScroll}
+        >
+          <style jsx>{'.flex::-webkit-scrollbar {display: none;}'}</style>
+          {/* Duplicate banners for infinite scroll effect */}
+          {[...banners, ...banners].map((banner, index) => (
             <div
-              key={banner.id}
-              className="relative h-[400px] overflow-hidden group cursor-pointer bg-gray-900 rounded-lg"
+              key={banner.id + '-' + index}
+              className="relative h-[400px] overflow-hidden group cursor-pointer bg-gray-900 rounded-lg flex-shrink-0 w-[300px] md:w-auto"
               onClick={() => {
                 if (isEditMode) {
                   handleEditBannerImage(banner.id)
@@ -797,7 +1099,7 @@ export default function ${title.replace(/\s+/g, '')}Page() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
                 )}
-                <div className={`absolute inset-0 bg-gradient-to-t ${banner.overlayColor} opacity-90`} />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
               </div>
               
               {/* Edit overlay for individual banner */}
@@ -865,10 +1167,10 @@ export default function ${title.replace(/\s+/g, '')}Page() {
           {/* Add new banner card in edit mode */}
           {isEditMode && (
             <div
-              className="relative h-[400px] overflow-hidden group cursor-pointer bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 flex flex-col items-center justify-center"
+              className="hidden relative h-[400px] overflow-hidden group cursor-pointer bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 flex flex-col items-center justify-center flex-shrink-0 w-[300px] md:w-auto"
               onClick={() => {
                 // Create a new banner with default values
-                const bannerId = `banner-${Date.now()}`
+                const bannerId = 'banner-' + Date.now()
                 const defaultTitle = "Novo Destaque"
                 
                 // Generate a slug for the new page
@@ -883,7 +1185,7 @@ export default function ${title.replace(/\s+/g, '')}Page() {
                   subtitle: "Subtítulo",
                   description: "Descrição do novo destaque da temporada",
                   image: "/placeholder-default.svg",
-                  link: `/explore/${slug}`, // Link to the dynamic explore page
+                  link: '/explore/' + slug, // Link to the dynamic explore page
                   buttonText: "EXPLORAR",
                   overlayColor: "from-black"
                 }
@@ -927,6 +1229,7 @@ export default function ${title.replace(/\s+/g, '')}Page() {
                   </svg>
                 </button>
               </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent"></div>
               <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
                 <div className="text-center text-gray-400">
                   <Plus className="h-12 w-12 mx-auto mb-2" />
@@ -937,6 +1240,8 @@ export default function ${title.replace(/\s+/g, '')}Page() {
           )}
         </div>
       </div>
+      
+
       
       {/* Banner Text Editing Modal */}
       {editingBannerTexts && (

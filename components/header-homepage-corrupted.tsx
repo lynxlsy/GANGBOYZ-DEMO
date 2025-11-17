@@ -1,0 +1,16 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Search, User, Heart, ShoppingCart, Sparkles, Flame, ChevronDown, Menu, X, Home, Bell, Truck } from "lucide-react"
+import { Sidebar } from "@/components/sidebar"
+import { MobileLogoSection } from "@/components/mobile-logo-section"
+import { useCart } from "@/lib/cart-context"
+import { useRouter } from "next/navigation"
+import { useProductPage } from "@/hooks/use-product-page"
+import { SearchBar } from "@/components/search-bar"
+import { UserDropdown } from "@/components/user-dropdown"
+import { useUser } from "@/lib/user-context"
+import { getContentById } from "@/lib/editable-content-utils"
+import { editableContentSyncService } from '@/lib/editable-content-sync';
+import { useEditMode } from "@/lib/edit-mode-context"
+import MobileHeaderLiteral from "@/components/mobile-header-literal"

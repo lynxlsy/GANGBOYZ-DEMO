@@ -11,7 +11,7 @@ import { StandardProductCard } from "@/components/standard-product-card"
 import { useProducts } from "@/lib/products-context-simple"
 import { useCart } from "@/lib/cart-context"
 import { useEditMode } from "@/lib/edit-mode-context"
-import { ArrowLeft, Edit, Filter, Trash2, X, Plus } from "lucide-react"
+import { ArrowLeft, Edit, Filter, Trash2, X, Plus, Check, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { CategoryConfig } from "@/lib/category-config"
 import { SeasonHighlightsProductSelector } from "@/components/season-highlights-product-selector"
@@ -29,9 +29,11 @@ interface ProductFiltersState {
 interface ProductCategoryPageProps {
   config: CategoryConfig
   subcategoryKey: string
+  isMainCategory?: boolean // New prop to indicate if this is a main category page
+  subcategoryKeys?: string[] // New prop for main category pages to specify which subcategories to include
 }
 
-export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryPageProps) {
+export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = false, subcategoryKeys = [] }: ProductCategoryPageProps) {
   const router = useRouter()
   const { products, getActiveProductsByCategory } = useProducts()
   const { addItem } = useCart()
@@ -49,10 +51,27 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
   const [isEditing, setIsEditing] = useState(false)
   const [currentProduct, setCurrentProduct] = useState<any>(null)
 
-  // Get products for this category
+  // Get products for this category or categories
   const categoryProducts = useMemo(() => {
-    return getActiveProductsByCategory(config.subcategory)
-  }, [getActiveProductsByCategory, config.subcategory])
+    if (isMainCategory && subcategoryKeys.length > 0) {
+      // For main category pages, get products from all specified subcategories
+      let allProducts: any[] = []
+      subcategoryKeys.forEach(key => {
+        const subcategoryProducts = getActiveProductsByCategory(key)
+        allProducts = [...allProducts, ...subcategoryProducts]
+      })
+      
+      // Remove duplicates by ID
+      const uniqueProducts = allProducts.filter((product, index, self) => 
+        index === self.findIndex(p => p.id === product.id)
+      )
+      
+      return uniqueProducts
+    } else {
+      // For subcategory pages, get products from the specific subcategory
+      return getActiveProductsByCategory(subcategoryKey)
+    }
+  }, [getActiveProductsByCategory, subcategoryKey, isMainCategory, subcategoryKeys])
 
   // Apply filters to products
   const filteredAndSortedProducts = useMemo(() => {
@@ -60,15 +79,19 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
 
     // Apply color filter
     if (filters.colors.length > 0) {
-      result = result.filter(product => 
-        filters.colors.includes(product.color)
-      )
+      result = result.filter(product => {
+        // Handle both single colors and comma-separated colors
+        const productColors = product.color ? product.color.split(',').map((c: string) => c.trim().toLowerCase()) : [];
+        return filters.colors.some(selectedColor => 
+          productColors.includes(selectedColor.toLowerCase())
+        );
+      });
     }
 
     // Apply size filter
     if (filters.sizes.length > 0) {
       result = result.filter(product => 
-        product.sizes.some(size => filters.sizes.includes(size))
+        product.sizes.some((size: string) => filters.sizes.includes(size))
       )
     }
 
@@ -131,6 +154,12 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
       eventManager.emit('forceProductsReload')
     }
 
+    // Carregar produtos automaticamente quando a página carregar
+    const loadProductsOnMount = () => {
+      console.log("🔄 Carregando produtos automaticamente na página padrão")
+      eventManager.emit('forceProductsReload')
+    }
+
     // Load Season Highlights products
     const loadSeasonHighlightProducts = () => {
       const savedProducts = localStorage.getItem(`gang-boyz-season-highlight-${subcategoryKey}-products`)
@@ -148,7 +177,8 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
     eventManager.subscribe('testProductCreated', handleProductCreated)
     eventManager.subscribe('seasonHighlightProductsUpdated', loadSeasonHighlightProducts)
     
-    // Carregar produtos no mount - removed the force reload to prevent infinite loop
+    // Carregar produtos no mount
+    loadProductsOnMount()
     loadSeasonHighlightProducts()
 
     // Cleanup
@@ -237,15 +267,22 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
         
         // Find the existing product and update it
         const updatedProductsArray = productsArray.map((p: any) => 
-          p.id === product.id ? { ...product, categories: [product.category, product.subcategory].filter(Boolean) } : p
+          p.id === product.id ? { 
+            ...product, 
+            categories: [product.category, product.subcategory].filter(Boolean),
+            // Ensure the product has the correct sizes array
+            sizes: product.availableSizes && product.availableSizes.length > 0 
+              ? product.availableSizes 
+              : []
+          } : p
         )
         
         // Save back to localStorage
         localStorage.setItem("gang-boyz-test-products", JSON.stringify(updatedProductsArray))
         
         // Dispatch event to force reload
-        eventManager.emitThrottled('testProductCreated');
-        eventManager.emitThrottled('forceProductsReload');
+        eventManager.emit('testProductCreated')
+        eventManager.emit('forceProductsReload')
         
         // Check if the destacarEmAlta flag has changed
         const oldProduct = productsArray.find((p: any) => p.id === product.id)
@@ -275,7 +312,11 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
         // Ensure the product has the correct categories array for proper filtering
         const productWithCategories = {
           ...product,
-          categories: [product.category, product.subcategory].filter(Boolean)
+          categories: [product.category, product.subcategory].filter(Boolean),
+          // Ensure the product has the correct sizes array
+          sizes: product.availableSizes && product.availableSizes.length > 0 
+            ? product.availableSizes 
+            : []
         }
         
         // Add the new product
@@ -309,8 +350,8 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
     <div className="min-h-screen bg-black text-white">
       <Header />
       
-      {/* Espaçamento para o header */}
-      <div className="h-[180px]"></div>
+      {/* Black background separator between header and content */}
+      <div className="hidden md:block w-full h-[5cm] bg-black"></div>
       
       <main className="pt-0">
         <div className="flex">
@@ -318,7 +359,7 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
           <div className="hidden md:block w-80 bg-black pt-0 ml-[40px]">
             <ProductFilters 
               category={config.category} 
-              subcategory={config.subcategory} 
+              subcategory={subcategoryKey} 
               onFiltersChange={handleFiltersChange}
             />
           </div>
@@ -344,7 +385,9 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
               </div>
               
               {/* Season Highlights Product Selector - Only for Season Highlights pages */}
-              <SeasonHighlightsProductSelector subcategoryKey={subcategoryKey} />
+              {typeof window !== 'undefined' && (
+                <SeasonHighlightsProductSelector subcategoryKey={subcategoryKey} />
+              )}
               
               {/* Add Product Cards Button - Only visible in edit mode */}
               {isEditMode && (
@@ -425,7 +468,7 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
                             originalPrice: 0,
                             image: "/placeholder-default.svg",
                             category: config.category,
-                            subcategory: config.subcategory,
+                            subcategory: subcategoryKey,
                             description: "",
                             sizes: [],
                             stock: 0,
@@ -508,7 +551,7 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
                               originalPrice: 0,
                               image: "/placeholder-default.svg",
                               category: config.category,
-                              subcategory: config.subcategory,
+                              subcategory: subcategoryKey,
                               description: "",
                               sizes: [],
                               stock: 0,
@@ -597,7 +640,7 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
                             originalPrice: 0,
                             image: "/placeholder-default.svg",
                             category: config.category,
-                            subcategory: config.subcategory,
+                            subcategory: subcategoryKey,
                             description: "",
                             sizes: [],
                             stock: 0,
@@ -657,8 +700,8 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
                                       localStorage.setItem("gang-boyz-test-products", JSON.stringify(updatedProducts));
                                       
                                       // Dispatch event to force reload
-                                      eventManager.emitThrottled('testProductCreated');
-                                      eventManager.emitThrottled('forceProductsReload');
+                                      eventManager.emit('testProductCreated');
+                                      eventManager.emit('forceProductsReload');
                                     }
                                   }
                                 }}
@@ -683,7 +726,7 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
                               originalPrice: 0,
                               image: "/placeholder-default.svg",
                               category: config.category,
-                              subcategory: config.subcategory,
+                              subcategory: subcategoryKey,
                               description: "",
                               sizes: [],
                               stock: 0,
@@ -736,39 +779,212 @@ export function ProductCategoryPage({ config, subcategoryKey }: ProductCategoryP
         </div>
       </main>
       
-      {/* Sidebar de Filtros Mobile */}
+      {/* Modal de Filtros Mobile - Moderno */}
       {isMobileFiltersOpen && (
         <>
-          {/* Overlay */}
+          {/* Overlay moderno */}
           <div 
-            className="fixed inset-0 bg-black/50 z-[80] md:hidden animate-in fade-in duration-300"
+            className="fixed inset-0 bg-black/80 z-[90] md:hidden flex items-center justify-center p-4 backdrop-blur-sm"
             onClick={() => setIsMobileFiltersOpen(false)}
-          />
-
-          {/* Sidebar - Direita */}
-          <div className="md:hidden fixed right-0 top-0 h-full w-full max-w-sm bg-black/95 backdrop-blur-md border-l border-white/20 z-[90] transform transition-transform duration-300 ease-in-out">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/20">
+          >
+            {/* Modal moderno */}
+            <div 
+              className="bg-black border border-gray-800 rounded-xl w-full max-w-sm max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header moderno */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                <h3 className="text-white font-medium text-sm uppercase tracking-wider">Filtros</h3>
                 <button
                   onClick={() => setIsMobileFiltersOpen(false)}
-                  className="text-white hover:text-gray-300 transition-colors duration-200 group"
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
-                  <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
+                  <X className="h-5 w-5" />
                 </button>
-                <div className="flex items-center space-x-2">
-                  <Filter className="h-5 w-5 text-white" />
-                  <h2 className="text-white font-bold text-lg">Filtros</h2>
+              </div>
+              
+              {/* Conteúdo moderno com scroll */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* Ordenar por */}
+                <div>
+                  <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Ordenar por</h4>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'mais-vendidos', label: 'Mais Vendidos' },
+                      { value: 'menor-preco', label: 'Menor Preço' },
+                      { value: 'maior-preco', label: 'Maior Preço' },
+                      { value: 'mais-recentes', label: 'Mais Recentes' },
+                      { value: 'melhor-avaliados', label: 'Melhor Avaliados' }
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setFilters(prev => ({ ...prev, sortOption: option.value }))}
+                        className="flex items-center gap-3 py-2 w-full text-left"
+                      >
+                        <div className="relative flex items-center justify-center w-5 h-5 border border-gray-600 rounded-full flex-shrink-0">
+                          {filters.sortOption === option.value && (
+                            <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                          )}
+                        </div>
+                        <span className="text-white text-sm">{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preço */}
+                <div>
+                  <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Preço</h4>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-gray-400 text-xs mb-1.5">De</label>
+                      <input 
+                        type="number" 
+                        value={filters.priceRange.min}
+                        onChange={(e) => setFilters(prev => ({ 
+                          ...prev, 
+                          priceRange: { ...prev.priceRange, min: Number(e.target.value) } 
+                        }))}
+                        className="w-full bg-gray-900 border border-gray-700 text-white px-3 py-2 text-sm focus:outline-none focus:border-red-500 rounded-lg"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-gray-400 text-xs mb-1.5">Até</label>
+                      <input 
+                        type="number" 
+                        value={filters.priceRange.max}
+                        onChange={(e) => setFilters(prev => ({ 
+                          ...prev, 
+                          priceRange: { ...prev.priceRange, max: Number(e.target.value) } 
+                        }))}
+                        className="w-full bg-gray-900 border border-gray-700 text-white px-3 py-2 text-sm focus:outline-none focus:border-red-500 rounded-lg"
+                        placeholder="500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cores */}
+                <div>
+                  <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Cores</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { name: 'Preto', color: 'bg-black', value: 'preto' },
+                      { name: 'Branco', color: 'bg-white', value: 'branco' },
+                      { name: 'Azul', color: 'bg-blue-500', value: 'azul' },
+                      { name: 'Vermelho', color: 'bg-red-500', value: 'vermelho' },
+                      { name: 'Verde', color: 'bg-green-500', value: 'verde' },
+                      { name: 'Amarelo', color: 'bg-yellow-500', value: 'amarelo' }
+                    ].map((colorOption) => (
+                      <button
+                        key={colorOption.value}
+                        onClick={() => {
+                          if (filters.colors.includes(colorOption.value)) {
+                            setFilters(prev => ({
+                              ...prev,
+                              colors: prev.colors.filter(c => c !== colorOption.value)
+                            }));
+                          } else {
+                            setFilters(prev => ({
+                              ...prev,
+                              colors: [...prev.colors, colorOption.value]
+                            }));
+                          }
+                        }}
+                        className={`w-8 h-8 rounded-full ${colorOption.color} border-2 ${filters.colors.includes(colorOption.value) ? 'border-red-500' : 'border-gray-700'} flex items-center justify-center`}
+                        title={colorOption.name}
+                      >
+                        {filters.colors.includes(colorOption.value) && (
+                          <Check className="h-4 w-4 text-white" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tamanhos */}
+                <div>
+                  <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Tamanhos</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['P', 'M', 'G', 'GG', 'XG', 'XXG'].map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => {
+                          if (filters.sizes.includes(size)) {
+                            setFilters(prev => ({
+                              ...prev,
+                              sizes: prev.sizes.filter(s => s !== size)
+                            }));
+                          } else {
+                            setFilters(prev => ({
+                              ...prev,
+                              sizes: [...prev.sizes, size]
+                            }));
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-sm rounded-lg border ${filters.sizes.includes(size) ? 'bg-red-500 border-red-500 text-white' : 'bg-gray-900 border-gray-700 text-white'}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Etiquetas */}
+                <div>
+                  <h4 className="text-white text-xs font-semibold mb-3 uppercase tracking-wider">Etiquetas</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { name: 'Promoção', value: 'promocao', color: 'bg-red-500' },
+                      { name: 'Esgotado', value: 'esgotado', color: 'bg-gray-500' },
+                      { name: 'Novo', value: 'novo', color: 'bg-blue-500' },
+                      { name: 'Lançamento', value: 'lancamento', color: 'bg-green-500' }
+                    ].map((label) => (
+                      <button
+                        key={label.value}
+                        onClick={() => {
+                          if (filters.labels.includes(label.value)) {
+                            setFilters(prev => ({
+                              ...prev,
+                              labels: prev.labels.filter(l => l !== label.value)
+                            }));
+                          } else {
+                            setFilters(prev => ({
+                              ...prev,
+                              labels: [...prev.labels, label.value]
+                            }));
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-xs rounded-full ${label.color} ${filters.labels.includes(label.value) ? 'text-white' : 'text-white/70'}`}
+                      >
+                        {label.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <ProductFilters 
-                  category={config.category} 
-                  subcategory={config.subcategory} 
-                  onFiltersChange={handleFiltersChange}
-                />
+              
+              {/* Botões modernos */}
+              <div className="p-4 border-t border-gray-800 flex gap-2">
+                <button 
+                  onClick={() => setFilters({
+                    sortOption: "mais-vendidos",
+                    colors: [],
+                    sizes: [],
+                    labels: [],
+                    priceRange: { min: 0, max: 500 }
+                  })}
+                  className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-2.5 text-sm font-medium rounded-lg border border-gray-700 transition-colors"
+                >
+                  Limpar
+                </button>
+                <button 
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Aplicar
+                </button>
               </div>
             </div>
           </div>

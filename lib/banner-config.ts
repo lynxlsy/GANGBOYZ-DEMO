@@ -101,7 +101,8 @@ export const BANNER_STRIP_CONFIGS = {
       bgColor: "black",
       height: 38,
       speed: 50,
-      repetitions: 4
+      repetitions: 4,
+      textAnimation: "scroll"
     }
   },
   categoryPages: {
@@ -117,7 +118,8 @@ export const BANNER_STRIP_CONFIGS = {
       bgColor: "black",
       height: 38,
       speed: 50,
-      repetitions: 4
+      repetitions: 4,
+      textAnimation: "scroll"
     }
   }
 }

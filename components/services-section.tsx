@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { editableContentSyncService } from '@/lib/editable-content-sync';
 
 interface Service {
   id: string
@@ -128,9 +129,59 @@ export function ServicesSection({ isEditMode = false }: { isEditMode?: boolean }
     
     window.addEventListener('servicesUpdated', handleServicesUpdate)
     window.addEventListener('editableContentsUpdated', handleEditableContentsUpdate)
+    
+    // Firebase real-time listener (now handles both text and icons)
+    const unsubscribeFirebase = editableContentSyncService.listenToContentChanges("services", (content) => {
+      if (content) {
+        // Parse and update services when Firebase content changes (including icons)
+        const lines = content.split('\n\n')
+        if (lines.length >= 4) {
+          const updatedServices = []
+          
+          // Parse each service block (3 lines per service: title, subtitle, ICON:icon)
+          for (let i = 0; i < lines.length && updatedServices.length < 4; i++) {
+            const serviceLines = lines[i].split('\n')
+            if (serviceLines.length >= 3) {
+              const title = serviceLines[0] || ""
+              const subtitle = serviceLines[1] || ""
+              const iconLine = serviceLines[2] || ""
+              const icon = iconLine.startsWith('ICON:') ? iconLine.substring(5) : "Clock"
+              
+              // Map to the correct service ID based on title
+              let serviceId = "atendimento" // default
+              if (title.includes("TROCA") || title.includes("troca")) {
+                serviceId = "trocas"
+              } else if (title.includes("FRET") || title.includes("fret")) {
+                serviceId = "frete"
+              } else if (title.includes("PARCEL") || title.includes("parcel") || title.includes("PAGAMENT") || title.includes("pagament")) {
+                serviceId = "parcelamento"
+              }
+              
+              updatedServices.push({
+                id: serviceId,
+                title: title,
+                subtitle: subtitle,
+                icon: icon,
+                isActive: true
+              })
+            }
+          }
+          
+          if (updatedServices.length > 0) {
+            // Save to localStorage
+            localStorage.setItem("gang-boyz-services", JSON.stringify(updatedServices))
+            setServices(updatedServices)
+            window.dispatchEvent(new Event('servicesUpdated'))
+          }
+        }
+      }
+    })
+    
     return () => {
       window.removeEventListener('servicesUpdated', handleServicesUpdate)
       window.removeEventListener('editableContentsUpdated', handleEditableContentsUpdate)
+      // Clean up Firebase listener
+      unsubscribeFirebase()
     }
   }, []) // Run only once on mount
 
@@ -184,126 +235,91 @@ export function ServicesSection({ isEditMode = false }: { isEditMode?: boolean }
 
   const loadEditableServices = () => {
     if (typeof window !== 'undefined') {
-      const savedContents = localStorage.getItem("gang-boyz-editable-contents")
-      // Get current icons from services in localStorage to preserve user selections
-      const currentServices = localStorage.getItem("gang-boyz-services")
-      let currentIcons: Record<string, string> = {}
-      
-      if (currentServices) {
-        try {
-          const parsedCurrentServices = JSON.parse(currentServices)
-          parsedCurrentServices.forEach((service: Service) => {
-            currentIcons[service.id] = service.icon
-          })
-        } catch (error) {
-          console.error('Erro ao fazer parse dos serviços atuais:', error)
+      // Try to get services from Firebase first (now includes icons)
+      const servicesContent = getContentById("services")
+      if (servicesContent) {
+        const lines = servicesContent.split('\n\n')
+        if (lines.length >= 4) {
+          const parsedServices = []
+          
+          // Parse each service block (3 lines per service: title, subtitle, ICON:icon)
+          for (let i = 0; i < lines.length && parsedServices.length < 4; i++) {
+            const serviceLines = lines[i].split('\n')
+            if (serviceLines.length >= 3) {
+              const title = serviceLines[0] || ""
+              const subtitle = serviceLines[1] || ""
+              const iconLine = serviceLines[2] || ""
+              const icon = iconLine.startsWith('ICON:') ? iconLine.substring(5) : "Clock"
+              
+              // Map to the correct service ID based on title
+              let serviceId = "atendimento" // default
+              if (title.includes("TROCA") || title.includes("troca")) {
+                serviceId = "trocas"
+              } else if (title.includes("FRET") || title.includes("fret")) {
+                serviceId = "frete"
+              } else if (title.includes("PARCEL") || title.includes("parcel") || title.includes("PAGAMENT") || title.includes("pagament")) {
+                serviceId = "parcelamento"
+              }
+              
+              parsedServices.push({
+                id: serviceId,
+                title: title,
+                subtitle: subtitle,
+                icon: icon
+              })
+            }
+          }
+          
+          if (parsedServices.length > 0) {
+            setEditableServices(parsedServices)
+            return
+          }
         }
       }
       
-      if (savedContents) {
+      // Fallback to localStorage if Firebase content is not available
+      const savedServices = localStorage.getItem("gang-boyz-services")
+      if (savedServices) {
         try {
-          const parsedContents = JSON.parse(savedContents)
-          
-          // Carregar serviços
-          const servicesItem = parsedContents.find((item: any) => item.id === "services")
-          if (servicesItem) {
-            const lines = servicesItem.content.split('\n\n')
-            if (lines.length >= 4) {
-              const newServices = [
-                {
-                  id: "atendimento",
-                  title: lines[0].split('\n')[0],
-                  subtitle: lines[0].split('\n')[1] || "",
-                  icon: currentIcons["atendimento"] || "Clock"
-                },
-                {
-                  id: "trocas",
-                  title: lines[1].split('\n')[0],
-                  subtitle: lines[1].split('\n')[1] || "",
-                  icon: currentIcons["trocas"] || "Package"
-                },
-                {
-                  id: "frete",
-                  title: lines[2].split('\n')[0],
-                  subtitle: lines[2].split('\n')[1] || "",
-                  icon: currentIcons["frete"] || "Truck"
-                },
-                {
-                  id: "parcelamento",
-                  title: lines[3].split('\n')[0],
-                  subtitle: lines[3].split('\n')[1] || "",
-                  icon: currentIcons["parcelamento"] || "CreditCard"
-                }
-              ]
-              setEditableServices(newServices)
-              setEditingServices(newServices)
-            }
-          }
+          const parsedServices = JSON.parse(savedServices)
+          setEditableServices(parsedServices)
         } catch (error) {
-          console.error('Erro ao fazer parse dos conteúdos editáveis:', error)
+          console.error('Erro ao fazer parse dos serviços editáveis:', error)
         }
-      } else {
-        // Initialize with default services if none exist
-        const defaultServices = [
-          {
-            id: "atendimento",
-            title: "ATENDIMENTO",
-            subtitle: "Segunda à sexta das 9h00 às 17h00",
-            icon: currentIcons["atendimento"] || "Clock"
-          },
-          {
-            id: "trocas",
-            title: "TROCAS E DEVOLUÇÕES",
-            subtitle: "Primeira troca é grátis",
-            icon: currentIcons["trocas"] || "Package"
-          },
-          {
-            id: "frete",
-            title: "FRETE",
-            subtitle: "Grátis acima de R$349",
-            icon: currentIcons["frete"] || "Truck"
-          },
-          {
-            id: "parcelamento",
-            title: "PARCELAMENTO",
-            subtitle: "Em até 10x sem juros no cartão",
-            icon: currentIcons["parcelamento"] || "CreditCard"
-          }
-        ]
-        setEditableServices(defaultServices)
-        setEditingServices(defaultServices)
       }
     }
   }
 
-  const handleSaveServices = () => {
-    // Formatar serviços para salvar
+  const handleSaveServices = async () => {
+    // Format services for saving (including icons for Firebase sync)
     const servicesContent = editingServices.map(service => 
-      `${service.title}\n${service.subtitle}`
+      `${service.title}\n${service.subtitle}\nICON:${service.icon}` // Include icon in the format
     ).join('\n\n')
     
-    updateContentById("services", servicesContent)
+    // Update content in Firebase and localStorage (now including icons)
+    await updateContentById("services", servicesContent)
     setEditableServices(editingServices)
     
-    // Atualizar também os serviços completos no localStorage
+    // Save the complete service data with icons to localStorage
     const updatedServices = editingServices.map(service => ({
       id: service.id,
-      icon: service.icon,
+      icon: service.icon, // Preserve the icon
       title: service.title,
       subtitle: service.subtitle,
       isActive: true
     }))
     
     localStorage.setItem("gang-boyz-services", JSON.stringify(updatedServices))
+    
+    // Remove separate icon storage since icons are now in main storage
+    localStorage.removeItem("gang-boyz-services-icons")
+    
     setServices(updatedServices)
     window.dispatchEvent(new Event('servicesUpdated'))
     
-    // Show success modal
-    setShowSuccessModal(true)
-    
     toast({
       title: "Serviços atualizados",
-      description: "Os serviços foram atualizados com sucesso."
+      description: "Os serviços foram salvos com sucesso.",
     })
   }
 
@@ -483,21 +499,19 @@ export function ServicesSection({ isEditMode = false }: { isEditMode?: boolean }
         ) : null}
         
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {services.filter(service => service.isActive).map((service, index) => {
-            // Encontrar o serviço editável correspondente
-            const editableService = editableServices.find(s => s.id === service.id) || editableServices[index]
-            
-            const IconComponent = getIconComponent(editableService?.icon || service.icon)
+          {services.filter(service => service.isActive).map((service) => {
+            // The service object now contains the icon information from Firebase
+            const IconComponent = getIconComponent(service.icon || "Clock")
             return (
               <div key={service.id} className="text-center">
                 <div className="flex justify-center mb-4">
                   <IconComponent className="h-12 w-12 text-gray-800" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2 uppercase">
-                  {editableService?.title || service.title}
+                  {service.title}
                 </h3>
                 <p className="text-gray-600 text-sm">
-                  {editableService?.subtitle || service.subtitle}
+                  {service.subtitle}
                 </p>
               </div>
             )

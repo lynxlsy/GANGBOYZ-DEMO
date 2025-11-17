@@ -13,6 +13,8 @@ export interface CartItem {
   image: string
   quantity: number
   size?: string
+  color?: string
+  selected?: boolean
 }
 
 interface CartState {
@@ -24,6 +26,9 @@ type CartAction =
   | { type: "ADD_ITEM"; payload: Omit<CartItem, "quantity"> & { quantity?: number } }
   | { type: "REMOVE_ITEM"; payload: number }
   | { type: "UPDATE_QUANTITY"; payload: { id: number; quantity: number } }
+  | { type: "TOGGLE_ITEM_SELECTION"; payload: number }
+  | { type: "SELECT_ALL_ITEMS" }
+  | { type: "DESELECT_ALL_ITEMS" }
   | { type: "CLEAR_CART" }
   | { type: "TOGGLE_CART" }
   | { type: "OPEN_CART" }
@@ -45,7 +50,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       }
       return {
         ...state,
-        items: [...state.items, { ...action.payload, quantity: action.payload.quantity || 1 }],
+        items: [...state.items, { ...action.payload, quantity: action.payload.quantity || 1, selected: action.payload.selected !== undefined ? action.payload.selected : true }],
       }
     }
     case "REMOVE_ITEM":
@@ -59,6 +64,23 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         items: state.items.map((item) =>
           item.id === action.payload.id ? { ...item, quantity: action.payload.quantity } : item,
         ),
+      }
+    case "TOGGLE_ITEM_SELECTION":
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item.id === action.payload ? { ...item, selected: !item.selected } : item,
+        ),
+      }
+    case "SELECT_ALL_ITEMS":
+      return {
+        ...state,
+        items: state.items.map((item) => ({ ...item, selected: true })),
+      }
+    case "DESELECT_ALL_ITEMS":
+      return {
+        ...state,
+        items: state.items.map((item) => ({ ...item, selected: false })),
       }
     case "CLEAR_CART":
       return {
@@ -91,6 +113,9 @@ const CartContext = createContext<{
   addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void
   removeItem: (id: number) => void
   updateQuantity: (id: number, quantity: number) => void
+  toggleItemSelection: (id: number) => void
+  selectAllItems: () => void
+  deselectAllItems: () => void
   clearCart: () => void
   processCheckout: (items: CartItem[]) => void
   toggleCart: () => void
@@ -98,6 +123,9 @@ const CartContext = createContext<{
   closeCart: () => void
   totalItems: number
   totalPrice: number
+  selectedItems: CartItem[]
+  selectedItemsCount: number
+  selectedItemsPrice: number
 } | null>(null)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -116,7 +144,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (savedCart) {
       const parsedCart = JSON.parse(savedCart)
       parsedCart.forEach((item: CartItem) => {
-        dispatch({ type: "ADD_ITEM", payload: item })
+        // Ensure items have the selected property
+        const itemWithSelection = { ...item, selected: item.selected !== undefined ? item.selected : true };
+        dispatch({ type: "ADD_ITEM", payload: itemWithSelection })
       })
     }
   }, [])
@@ -213,12 +243,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Function to process checkout and update product stocks
   const processCheckout = (items: CartItem[]) => {
-    // In a real implementation, this would integrate with the checkout process
-    // For now, we'll just clear the cart
-    clearCart()
+    // Store selected items in localStorage for checkout page to access
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gang-boyz-checkout-items', JSON.stringify(items))
+    }
+    
+    // Remove selected items from cart but keep unselected items
+    const selectedIds = items.map(item => item.id)
+    selectedIds.forEach(id => {
+      dispatch({ type: "REMOVE_ITEM", payload: id })
+    })
     
     // In the future, this will call updateProductStockAfterPurchase
     // to reduce the stock of purchased items
+  }
+
+  const toggleItemSelection = (id: number) => {
+    dispatch({ type: "TOGGLE_ITEM_SELECTION", payload: id })
+  }
+
+  const selectAllItems = () => {
+    dispatch({ type: "SELECT_ALL_ITEMS" })
+  }
+
+  const deselectAllItems = () => {
+    dispatch({ type: "DESELECT_ALL_ITEMS" })
   }
 
   const toggleCart = () => {
@@ -235,6 +284,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  
+  // Selected items calculations
+  const selectedItems = state.items.filter(item => item.selected !== undefined ? item.selected : true)
+  const selectedItemsCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const selectedItemsPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   return (
     <CartContext.Provider
@@ -244,6 +298,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         addItem,
         removeItem,
         updateQuantity,
+        toggleItemSelection,
+        selectAllItems,
+        deselectAllItems,
         clearCart,
         processCheckout,
         toggleCart,
@@ -251,6 +308,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         closeCart,
         totalItems,
         totalPrice,
+        selectedItems,
+        selectedItemsCount,
+        selectedItemsPrice,
       }}
     >
       {children}

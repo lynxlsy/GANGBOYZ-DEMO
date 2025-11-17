@@ -192,8 +192,32 @@ export function initializeDemoProducts() {
     console.log("✅ Produtos avulsos demonstrativos adicionados!")
   }
 
-  // Adicionar categorias se não existirem
+  // Adicionar categorias se não existirem ou não foram personalizadas
+  let shouldAddCategories = false
   if (!existingCategories) {
+    shouldAddCategories = true
+  } else {
+    try {
+      const parsedCategories = JSON.parse(existingCategories)
+      // Verificar se as categorias já foram personalizadas
+      const isCustomized = parsedCategories.some((cat: any) => 
+        cat.id !== cat.id.toUpperCase() || // IDs personalizados não estão em maiúsculo
+        cat.description !== "" || // Categorias personalizadas podem ter descrições
+        !cat.products // Categorias personalizadas podem não ter o array de produtos
+      )
+      
+      if (!isCustomized) {
+        shouldAddCategories = true
+      } else {
+        console.log("ℹ️ Categorias personalizadas detectadas, mantendo as existentes")
+      }
+    } catch (error) {
+      console.warn("Erro ao verificar categorias existentes:", error)
+      shouldAddCategories = true
+    }
+  }
+  
+  if (shouldAddCategories) {
     localStorage.setItem("gang-boyz-categories", JSON.stringify(demoCategories))
     console.log("✅ Categorias demonstrativas adicionadas!")
   }
@@ -201,7 +225,7 @@ export function initializeDemoProducts() {
   return {
     hotProductsAdded: !existingHotProducts,
     standaloneProductsAdded: !existingStandaloneProducts,
-    categoriesAdded: !existingCategories
+    categoriesAdded: shouldAddCategories
   }
 }
 

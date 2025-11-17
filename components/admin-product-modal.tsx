@@ -378,10 +378,10 @@ export function AdminProductModal({
       }
     }
     
-    // Validation for all products - color is required
-    if (!formData.color) {
-      alert("Por favor, selecione a cor do produto.")
-      return
+    // Validation for all products - at least one color is required
+    if (!formData.color || formData.color.split(',').filter(c => c).length === 0) {
+      alert("Por favor, selecione pelo menos uma cor para o produto.");
+      return;
     }
     
     // Calculate total stock from size quantities for recommendations, offers and subcategories
@@ -422,10 +422,18 @@ export function AdminProductModal({
       dimensions: formData.dimensions,
       origin: formData.origin,
       care: formData.care,
-      warranty: formData.warranty
+      warranty: formData.warranty,
+      // Ensure category and subcategory are properly set for all product types
+      category: formData.category || "Camisetas",
+      subcategory: formData.subcategory || subcategory
     }
     
+    // Save the product
     onSave(productData)
+    
+    // Dispatch events to notify other components that products have been updated
+    window.dispatchEvent(new Event('forceProductsReload'))
+    window.dispatchEvent(new Event('testProductCreated'))
   }
 
   if (!isOpen) return null
@@ -483,7 +491,7 @@ export function AdminProductModal({
                     categories: [formData.category, formData.subcategory].filter(Boolean) as string[],
                     sizes: formData.availableSizes && formData.availableSizes.length > 0 
                       ? formData.availableSizes 
-                      : ["P", "M", "G", "GG", "XG", "XXG"],
+                      : [],
                     discountPercentage: formData.originalPrice && formData.originalPrice > formData.price 
                       ? Math.round(((formData.originalPrice - formData.price) / formData.originalPrice) * 100)
                       : undefined,
@@ -491,7 +499,7 @@ export function AdminProductModal({
                     brand: "Gang BoyZ",
                     isNew: true,
                     isPromotion: !!(formData.originalPrice && formData.originalPrice > formData.price),
-                    description: `${formData.name} - Cor: ${formData.color}`,
+                    description: `${formData.name} - Cores: ${formData.color.split(',').filter(c => c).join(', ')}`,
                     status: "ativo" as const,
                     stock: formData.availableUnits || 10,
                     sizeStock: formData.sizeStock || {}
@@ -525,9 +533,9 @@ export function AdminProductModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* ID do Produto */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   ID do Produto {mode === 'create' && '*'}
-                </Label>
+                </label>
                 {mode === 'create' ? (
                   <div className="relative">
                     <Input
@@ -552,9 +560,9 @@ export function AdminProductModal({
 
               {/* Nome do Produto */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Nome do Produto *
-                </Label>
+                </label>
                 <Input
                   name="name"
                   value={formData.name}
@@ -566,9 +574,9 @@ export function AdminProductModal({
               
               {/* Preço */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Preço Atual *
-                </Label>
+                </label>
                 <Input
                   name="price"
                   type="number" 
@@ -582,9 +590,9 @@ export function AdminProductModal({
               
               {/* Preço Original */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Preço Original (opcional)
-                </Label>
+                </label>
                 <Input
                   name="originalPrice"
                   type="number" 
@@ -598,39 +606,132 @@ export function AdminProductModal({
               
               {/* Cor */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
-                  Cor <span className="text-red-500">*</span>
-                </Label>
-                <select
-                  name="color"
-                  value={formData.color}
-                  onChange={handleInputChange}
-                  className="w-full bg-white border border-gray-300 text-gray-700 rounded-xl px-3 py-3 focus:border-blue-500 focus:outline-none h-11"
-                >
-                  <option value="">Selecione uma cor</option>
-                  <option value="Preto">Preto</option>
-                  <option value="Branco">Branco</option>
-                  <option value="Azul">Azul</option>
-                  <option value="Rosa">Rosa</option>
-                  <option value="Bege">Bege</option>
-                  <option value="Cinza">Cinza</option>
-                  <option value="Vermelho">Vermelho</option>
-                  <option value="Verde">Verde</option>
-                  <option value="Amarelo">Amarelo</option>
-                  <option value="Roxo">Roxo</option>
-                  <option value="Laranja">Laranja</option>
-                  <option value="Marrom">Marrom</option>
-                  <option value="Outro">Outro</option>
-                </select>
-                {formData.color === "Outro" && (
-                  <Input
-                    name="color"
-                    value={formData.color}
-                    onChange={handleInputChange}
-                    placeholder="Digite a cor personalizada"
-                    className="bg-white border-gray-300 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-xl h-11 mt-2"
-                  />
-                )}
+                <label className="text-sm font-medium text-gray-900 mb-2 block flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-r from-red-500 to-purple-500"></div>
+                    Cores
+                  </span>
+                  <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-full">Obrigatório</span>
+                </label>
+                <div className="space-y-4">
+                  {/* Visual color selection */}
+                  <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2">
+                    {[
+                      { name: 'Preto', value: 'Preto', color: '#000000' },
+                      { name: 'Branco', value: 'Branco', color: '#FFFFFF' },
+                      { name: 'Azul', value: 'Azul', color: '#0000FF' },
+                      { name: 'Rosa', value: 'Rosa', color: '#FFC0CB' },
+                      { name: 'Bege', value: 'Bege', color: '#F5F5DC' },
+                      { name: 'Cinza', value: 'Cinza', color: '#808080' },
+                      { name: 'Vermelho', value: 'Vermelho', color: '#FF0000' },
+                      { name: 'Verde', value: 'Verde', color: '#008000' },
+                      { name: 'Amarelo', value: 'Amarelo', color: '#FFFF00' },
+                      { name: 'Roxo', value: 'Roxo', color: '#800080' },
+                      { name: 'Laranja', value: 'Laranja', color: '#FFA500' },
+                      { name: 'Marrom', value: 'Marrom', color: '#8B4513' }
+                    ].map((colorOption) => (
+                      <button
+                        key={colorOption.value}
+                        type="button"
+                        onClick={() => {
+                          const currentColors = formData.color ? formData.color.split(',').filter(c => c) : [];
+                          let newColors;
+                          
+                          if (currentColors.includes(colorOption.value)) {
+                            // Remove color if already selected
+                            newColors = currentColors.filter(c => c !== colorOption.value);
+                          } else {
+                            // Add color if not selected
+                            newColors = [...currentColors, colorOption.value];
+                          }
+                          
+                          setFormData(prev => ({ ...prev, color: newColors.join(',') }));
+                        }}
+                        className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-200 ${
+                          formData.color && formData.color.split(',').filter(c => c).includes(colorOption.value)
+                            ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div 
+                          className="w-6 h-6 rounded-full border border-gray-300 shadow-sm"
+                          style={{ backgroundColor: colorOption.color }}
+                        ></div>
+                        <span className="text-xs mt-1 text-gray-700 truncate w-full text-center">{colorOption.name}</span>
+                      </button>
+                    ))}
+                    
+                    {/* Outro option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentColors = formData.color ? formData.color.split(',').filter(c => c) : [];
+                        let newColors;
+                        
+                        if (currentColors.includes('Outro')) {
+                          // Remove "Outro" if already selected
+                          newColors = currentColors.filter(c => c !== 'Outro');
+                        } else {
+                          // Add "Outro" if not selected
+                          newColors = [...currentColors, 'Outro'];
+                        }
+                        
+                        setFormData(prev => ({ ...prev, color: newColors.join(',') }));
+                      }}
+                      className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-200 ${
+                        formData.color && formData.color.split(',').filter(c => c).includes('Outro')
+                          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full border border-gray-300 bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">+</span>
+                      </div>
+                      <span className="text-xs mt-1 text-gray-700 truncate w-full text-center">Outro</span>
+                    </button>
+                  </div>
+                  
+                  {/* Display selected colors */}
+                  {formData.color && formData.color.split(',').filter(c => c).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.color.split(',').filter(c => c).map((color, index) => (
+                        <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                          {color}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const colors = formData.color.split(',').filter(c => c);
+                              const newColors = colors.filter(c => c !== color);
+                              setFormData(prev => ({ ...prev, color: newColors.join(',') }));
+                            }}
+                            className="ml-2 inline-flex text-blue-500 hover:text-blue-700"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Custom color input */}
+                  {formData.color && formData.color.includes('Outro') && (
+                    <div className="mt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cores Personalizadas</label>
+                      <Input
+                        value={formData.color.split(',').filter(c => c && c !== 'Outro').join(',')}
+                        onChange={(e) => {
+                          const otherColors = e.target.value;
+                          const currentColors = formData.color.split(',').filter(c => c && c !== 'Outro');
+                          const newColors = [...currentColors, 'Outro', ...otherColors.split(',')].filter(c => c);
+                          setFormData(prev => ({ ...prev, color: newColors.join(',') }));
+                        }}
+                        placeholder="Digite as cores separadas por vírgula"
+                        className="bg-white border-gray-300 text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 rounded-xl h-11"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Ex: Turquesa, Coral, Salmão</p>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Hidden fields for category and subcategory for regular products */}
@@ -643,9 +744,9 @@ export function AdminProductModal({
               
               {/* Upload de Imagem */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Imagem do Produto
-                </Label>
+                </label>
                 <div className="space-y-3">
                   <Input
                     type="file"
@@ -667,9 +768,9 @@ export function AdminProductModal({
 
               {/* Tipo de Etiqueta */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Tipo de Etiqueta <span className="text-gray-400 text-sm">(Opcional)</span>
-                </Label>
+                </label>
                 <select
                   name="labelType"
                   value={formData.labelType || ""}
@@ -685,9 +786,9 @@ export function AdminProductModal({
 
               {/* Texto da Etiqueta */}
               <div>
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Texto da Etiqueta <span className="text-gray-400 text-sm">(Opcional)</span>
-                </Label>
+                </label>
                 <Input
                   name="label"
                   value={formData.label || ""}
@@ -828,9 +929,9 @@ export function AdminProductModal({
 
               {/* Descrição do Produto (Opcional) */}
               <div className="md:col-span-2">
-                <Label className="text-gray-700 font-semibold mb-2 block">
+                <label className="text-gray-700 font-semibold mb-2 block">
                   Descrição do Produto <span className="text-gray-400 text-sm">(Opcional)</span>
-                </Label>
+                </label>
                 <textarea
                   name="description"
                   value={formData.description || ""}
@@ -974,9 +1075,9 @@ export function AdminProductModal({
                           <h4 className="text-md font-semibold text-gray-700">Informações de Envio</h4>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Texto do Frete Grátis
-                            </Label>
+                            </label>
                             <Input
                               value={formData.freeShippingText}
                               onChange={(e) => handleProductInfoChange('freeShippingText', e.target.value)}
@@ -986,9 +1087,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Valor Mínimo para Frete Grátis
-                            </Label>
+                            </label>
                             <Input
                               value={formData.freeShippingThreshold}
                               onChange={(e) => handleProductInfoChange('freeShippingThreshold', e.target.value)}
@@ -998,9 +1099,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Texto de Retirada na Loja
-                            </Label>
+                            </label>
                             <Input
                               value={formData.pickupText}
                               onChange={(e) => handleProductInfoChange('pickupText', e.target.value)}
@@ -1010,9 +1111,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Status da Retirada
-                            </Label>
+                            </label>
                             <Input
                               value={formData.pickupStatus}
                               onChange={(e) => handleProductInfoChange('pickupStatus', e.target.value)}
@@ -1027,9 +1128,9 @@ export function AdminProductModal({
                           <h4 className="text-md font-semibold text-gray-700">Informações Técnicas</h4>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Material
-                            </Label>
+                            </label>
                             <Input
                               value={formData.material}
                               onChange={(e) => handleProductInfoChange('material', e.target.value)}
@@ -1039,9 +1140,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Peso
-                            </Label>
+                            </label>
                             <Input
                               value={formData.weight}
                               onChange={(e) => handleProductInfoChange('weight', e.target.value)}
@@ -1051,9 +1152,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Dimensões
-                            </Label>
+                            </label>
                             <Input
                               value={formData.dimensions}
                               onChange={(e) => handleProductInfoChange('dimensions', e.target.value)}
@@ -1063,9 +1164,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Origem
-                            </Label>
+                            </label>
                             <Input
                               value={formData.origin}
                               onChange={(e) => handleProductInfoChange('origin', e.target.value)}
@@ -1075,9 +1176,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Cuidados
-                            </Label>
+                            </label>
                             <Input
                               value={formData.care}
                               onChange={(e) => handleProductInfoChange('care', e.target.value)}
@@ -1087,9 +1188,9 @@ export function AdminProductModal({
                           </div>
                           
                           <div>
-                            <Label className="text-gray-700 text-sm mb-1 block">
+                            <label className="text-gray-700 text-sm mb-1 block">
                               Garantia
-                            </Label>
+                            </label>
                             <Input
                               value={formData.warranty}
                               onChange={(e) => handleProductInfoChange('warranty', e.target.value)}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { HeaderCentered } from "@/components/header-centered"
+import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
 import { CategoryShowcase } from "@/components/category-showcase"
 import { BannersShowcase } from "@/components/banners-showcase"
@@ -22,10 +22,14 @@ import { NotificationSystem } from "@/components/notification-system"
 import { CookieBanner } from "@/components/cookie-banner"
 import { EditModeControls } from "@/components/edit-mode-controls"
 import { FooterBanner } from "@/components/footer-banner-v2"
-import { HomepageBannerStrip } from "@/components/banner-strip-unified"
+import { BannerStrip as HomepageBannerStrip } from "@/components/banner-strip"
+import { TopBannerStrip } from "@/components/top-banner-strip"
 import { RecommendationsSection } from "@/components/recommendations-section"
 import { HotSection } from "@/components/hot-section"
 import { OffersBanner } from "@/components/banner-renderer"
+import { CouponManagement } from "@/components/coupon-management"
+import { TestCouponSystem } from "@/components/test-coupon-system"
+import { OngoingPurchaseNotification } from "@/components/ongoing-purchase-notification"
 
 export default function Home() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
@@ -234,7 +238,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <HeaderCentered />
+      <TopBannerStrip />
+      <Header />
+      <TestCouponSystem />
       
       {/* Edit Mode Controls */}
       <EditModeControls />
@@ -304,6 +310,24 @@ export default function Home() {
       )}
       
       <main>
+        {/* Scrolling demo banner - appears above header when selected */}
+        {/* {showDemoBanner && (
+          <div className="hidden md:block w-full h-16 bg-black flex items-center overflow-hidden">
+            <div className="flex items-center h-full">
+              <div className="flex font-bold text-sm tracking-wider whitespace-nowrap" style={{ animation: '10s linear 0s infinite normal none running scroll', color: 'white' }}>
+                <span className="mr-16">SITE DEMONSTRATIVO</span>
+                <span className="mr-16">SITE DEMONSTRATIVO</span>
+                <span className="mr-16">SITE DEMONSTRATIVO</span>
+                <span className="mr-16">SITE DEMONSTRATIVO</span>
+                <span className="mr-16">SITE DEMONSTRATIVO</span>
+              </div>
+            </div>
+          </div>
+        )} */}
+        
+        {/* Black bar above hero banner */}
+        <div className="hidden md:block w-full h-[2cm] bg-black"></div>
+        
         {/* Hero Section */}
         <Hero onEditBannerImage={handleEditBannerImage} />
         
@@ -314,13 +338,13 @@ export default function Home() {
         <CategoryShowcase />
         
         {/* Banners Showcase */}
-        <BannersShowcase />
+        <BannersShowcase isEditMode={isEditMode} />
         
         {/* Recommendations Section */}
         <RecommendationsSection />
         
         {/* Hot Section */}
-        <HotSection />
+        <HotSection isEditMode={isEditMode} />
         
         {/* Offers Banner - Adding the missing offers banner */}
         <div className="container mx-auto px-4 py-8">
@@ -333,6 +357,17 @@ export default function Home() {
         {/* Footer Banner - Moved above Services Section as requested */}
         <FooterBanner />
         
+        {/* Sobre a Gang Boyz Section */}
+        <div className="py-16">
+          <div className="container mx-auto px-4 text-center max-w-3xl">
+            <h2 className="text-3xl font-bold text-white mb-6">Sobre a Gang Boyz</h2>
+            <p className="text-gray-300 text-lg leading-relaxed">
+              A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. 
+              Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.
+            </p>
+          </div>
+        </div>
+        
         {/* Services Section with spacing */}
         <div className="mt-8">
           <ServicesSection isEditMode={isEditMode} />
@@ -341,6 +376,12 @@ export default function Home() {
         {/* Product Information Edit Section - Removed as per new requirements */}
         {/* {isEditMode && <ProductInfoEditor />} */}
         
+        {/* Coupon Management - Only visible in edit mode */}
+        {isEditMode && (
+          <div className="container mx-auto px-4 py-8">
+            <CouponManagement />
+          </div>
+        )}
       </main>
 
       <Footer />
@@ -349,6 +390,7 @@ export default function Home() {
       <WhatsAppButton />
       <NotificationSystem />
       <CookieBanner />
+      <OngoingPurchaseNotification />
     </div>
   )
 }

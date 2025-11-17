@@ -16,13 +16,10 @@ export function useProductPage() {
     '/em-alta'
   ]
   
-  const isProductPage = productPages.some(page => pathname.startsWith(page))
+  const isProductPage = pathname ? productPages.some(page => pathname.startsWith(page)) : false
   
-  return { isProductPage, pathname }
+  // Check if we're on a product detail page
+  const isProductDetailPage = pathname ? pathname.startsWith('/produto/') : false
+  
+  return { isProductPage, isProductDetailPage, pathname }
 }
-
-
-
-
-
-

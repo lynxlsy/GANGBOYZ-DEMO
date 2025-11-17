@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './mobile-header.css';
 
 @custom-variant dark (&:is(.dark *));
 

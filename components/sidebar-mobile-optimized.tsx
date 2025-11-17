@@ -110,12 +110,12 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
     <>
       {/* Overlay - Apenas Mobile */}
       <div 
-        className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-300"
+        className="fixed inset-0 bg-black/50 z-[80] md:hidden animate-in fade-in duration-300"
         onClick={onClose}
       />
 
       {/* Sidebar - Apenas Mobile - Otimizada */}
-      <div className="md:hidden fixed left-0 top-0 h-full w-full max-w-sm bg-black/95 backdrop-blur-md border-r border-white/20 z-50 transform transition-transform duration-300 ease-in-out">
+      <div className="md:hidden fixed left-0 top-0 h-full w-full max-w-sm bg-black/95 backdrop-blur-md border-r border-white/20 z-[90] transform transition-transform duration-300 ease-in-out">
         <div className="flex flex-col h-full">
           {/* Header da Sidebar */}
           <div className="flex items-center justify-between p-4 border-b border-white/20">
@@ -126,7 +126,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
             />
             <button
               onClick={onClose}
-              className="text-white hover:text-gray-300 transition-colors duration-200 group touch-manipulation"
+              className="text-white hover:text-gray-300 transition-colors duration-200 group"
             >
               <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-200" />
             </button>
@@ -138,7 +138,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
               {/* Pesquisar */}
               <button
                 onClick={() => setShowSearchBar(!showSearchBar)}
-                className="flex items-center justify-center space-x-2 px-3 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group touch-manipulation"
+                className="flex items-center justify-center space-x-2 px-3 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group"
               >
                 <Search className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
                 <span className="text-sm font-medium">Pesquisar</span>
@@ -147,7 +147,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
               {/* Favoritos */}
               <button
                 onClick={() => handleNavigation("/favoritos")}
-                className="flex items-center justify-center space-x-2 px-3 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group relative touch-manipulation"
+                className="flex items-center justify-center space-x-2 px-3 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group relative"
               >
                 <Heart className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
                 <span className="text-sm font-medium">Favoritos</span>
@@ -163,7 +163,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
                 <input
                   type="text"
                   placeholder="Pesquisar produtos..."
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base touch-manipulation"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                 />
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
               </div>
@@ -176,7 +176,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
               {/* Botão Início */}
               <button
                 onClick={() => handleNavigation("/")}
-                className="w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center space-x-3 group cursor-pointer touch-manipulation"
+                className="w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center space-x-3 group cursor-pointer"
               >
                 <Home className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
                 <span className="font-medium text-base">Início</span>
@@ -192,7 +192,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
                     <div key={item.label} className="space-y-1">
                       <button
                         onClick={() => setOpenDropdown(isOpen ? null : item.key)}
-                        className={`w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center justify-between group cursor-pointer touch-manipulation ${
+                        className={`w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center justify-between group cursor-pointer ${
                           (item as any).isHot 
                             ? 'text-red-500 font-bold' 
                             : (item as any).isBlue
@@ -226,7 +226,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
                             <button
                               key={subItem.label}
                               onClick={() => handleNavigation(subItem.href)}
-                              className="w-full text-left px-4 py-3 text-white/90 hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center group cursor-pointer border-l-2 border-transparent hover:border-blue-400 touch-manipulation"
+                              className="w-full text-left px-4 py-3 text-white/90 hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center group cursor-pointer border-l-2 border-transparent hover:border-blue-400"
                             >
                               <span className="font-medium text-sm group-hover:translate-x-1 transition-transform duration-200">{subItem.label}</span>
                             </button>
@@ -241,7 +241,7 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
                   <button
                     key={item.label}
                     onClick={() => handleNavigation(item.href)}
-                    className={`w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center space-x-3 group cursor-pointer touch-manipulation ${
+                    className={`w-full text-left px-4 py-4 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 flex items-center space-x-3 group cursor-pointer ${
                       (item as any).isHot 
                         ? 'text-red-500 font-bold' 
                         : (item as any).isBlue
@@ -271,13 +271,11 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
               {/* Usuário */}
               <div className="flex items-center space-x-3">
                 {user ? (
-                  <div className="touch-manipulation">
-                    <UserDropdown />
-                  </div>
+                  <UserDropdown />
                 ) : (
                   <button
                     onClick={() => handleNavigation('/auth/signin')}
-                    className="flex items-center space-x-3 px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group cursor-pointer w-full touch-manipulation"
+                    className="flex items-center space-x-3 px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group cursor-pointer w-full"
                   >
                     <User className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
                     <span className="font-medium text-base">Entrar</span>
@@ -288,14 +286,14 @@ export function SidebarMobileOptimized({ isOpen, onClose }: SidebarMobileOptimiz
               {/* Carrinho */}
               <button
                 onClick={() => handleNavigation('/cart')}
-                className="flex items-center justify-between px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group cursor-pointer w-full relative touch-manipulation"
+                className="flex items-center justify-between px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-lg transition-all duration-200 group cursor-pointer w-full relative"
               >
                 <div className="flex items-center space-x-3">
                   <ShoppingCart className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
                   <span className="font-medium text-base">Carrinho</span>
                 </div>
                 {cartItemsCount > 0 && (
-                  <span className="bg-white text-black text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse touch-manipulation">
+                  <span className="bg-white text-black text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
                     {cartItemsCount > 9 ? '9+' : cartItemsCount}
                   </span>
                 )}

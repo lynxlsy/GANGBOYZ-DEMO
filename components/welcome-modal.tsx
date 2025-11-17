@@ -1,11 +1,9 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { X, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { getContentById, updateContentById } from "@/lib/editable-content-utils"
-import { editableContentSyncService } from '@/lib/editable-content-sync';
 
 interface WelcomeModalProps {
   isOpen: boolean
@@ -21,12 +19,6 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
     description: "Descubra nossa coleção exclusiva de streetwear premium. Peças únicas que expressam sua individualidade e estilo urbano.",
     buttonText: "Explorar Loja"
   })
-  const configRef = useRef(config);
-
-  // Keep the ref updated with the latest config
-  useEffect(() => {
-    configRef.current = config;
-  }, [config]);
 
   useEffect(() => {
     // Verificar se estamos no cliente
@@ -49,32 +41,6 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
           console.error('Erro ao fazer parse da configuração:', error)
         }
       }
-      
-      // Firebase real-time listener for welcome modal config
-      const unsubscribeWelcomeModal = editableContentSyncService.listenToContentChanges("welcome-modal-config", (content) => {
-        if (content) {
-          try {
-            const parsedConfig = JSON.parse(content);
-            if (typeof parsedConfig === 'object' && parsedConfig !== null) {
-              // Ensure all required properties are present
-              const completeConfig = {
-                enabled: configRef.current.enabled,
-                displayTime: configRef.current.displayTime,
-                title: configRef.current.title,
-                description: configRef.current.description,
-                buttonText: configRef.current.buttonText,
-                ...parsedConfig
-              };
-              
-              setConfig(completeConfig);
-              // Also save to localStorage for offline access
-              localStorage.setItem('welcome-modal-config', JSON.stringify(completeConfig));
-            }
-          } catch (error) {
-            console.error('Erro ao processar configuração do modal de boas-vindas do Firebase:', error);
-          }
-        }
-      });
 
       // Check if user has disabled the modal
       const modalDisabled = localStorage.getItem('welcome-modal-disabled')
@@ -87,11 +53,7 @@ export function WelcomeModal({ isOpen, onClose }: WelcomeModalProps) {
         onClose()
       }, config.displayTime * 1000) // Auto close after configured time
 
-      return () => {
-        clearTimeout(timer)
-        // Clean up Firebase listener
-        unsubscribeWelcomeModal();
-      }
+      return () => clearTimeout(timer)
     }
   }, [isOpen, onClose, config.displayTime])
 

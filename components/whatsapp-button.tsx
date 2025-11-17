@@ -141,7 +141,7 @@ export function WhatsAppButton({ className = "" }: WhatsAppButtonProps) {
     <>
       <button
         onClick={handleWhatsAppClick}
-        className={`fixed bottom-8 left-8 z-50 p-2 rounded-full shadow-lg transition-all duration-300 hover:scale-110 group ${className} ${isEditMode ? 'ring-2 ring-yellow-400' : ''}`}
+        className={`fixed bottom-8 left-8 z-50 p-2 transition-all duration-300 hover:scale-110 group ${className} ${isEditMode ? 'ring-2 ring-yellow-400 rounded-full' : ''}`}
         title={isEditMode ? "Editar link do WhatsApp" : "Fale conosco no WhatsApp"}
       >
         <Image

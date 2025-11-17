@@ -24,8 +24,9 @@ export default function EmAltaPage() {
   // Escutar eventos de produtos criados e carregar automaticamente
   useEffect(() => {
     const handleProductCreated = () => {
-      // Forçar atualização dos produtos em todas as páginas
-      eventManager.emitThrottled('forceProductsReload');
+      // Removido console.log para evitar loop de logs
+      // Forçar atualização do contexto
+      eventManager.emit('forceProductsReload')
     }
 
     eventManager.subscribe('testProductCreated', handleProductCreated)

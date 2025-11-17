@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,17 +35,6 @@ import { BannerConfig, BANNER_CONFIGS, BANNER_STRIP_CONFIGS } from "@/lib/banner
 import { BannerData, BannerStripData } from "@/hooks/use-banner"
 import { bannerSyncServiceV2 } from "@/lib/banner-sync-service-v2"
 
-interface OverlaySettings {
-  enabled: boolean
-  fromColor: string
-  fromOpacity: number
-  viaColor: string
-  viaOpacity: number
-  toColor: string
-  toOpacity: number
-  direction: 'to-r' | 'to-l' | 'to-t' | 'to-b' | 'to-br' | 'to-bl' | 'to-tr' | 'to-tl'
-}
-
 interface HomepageBannersAdminProps {
   storageKey: string
   eventName: string
@@ -67,7 +56,6 @@ export function HomepageBannersAdmin({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [devicePreview, setDevicePreview] = useState<'mobile' | 'desktop'>('desktop')
   const [editingBanner, setEditingBanner] = useState<string | null>(null)
-  const [editingOverlay, setEditingOverlay] = useState<string | null>(null)
   const [cropData, setCropData] = useState<{x: number, y: number, scale: number}>({x: 0, y: 0, scale: 1})
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   
@@ -75,12 +63,6 @@ export function HomepageBannersAdmin({
   const [stripData, setStripData] = useState<BannerStripData | null>(null)
   const [stripSaving, setStripSaving] = useState(false)
   const [stripSaved, setStripSaved] = useState(false)
-  
-  // Debug logs
-  console.log('HomepageBannersAdmin - storageKey:', storageKey)
-  console.log('HomepageBannersAdmin - eventName:', eventName)
-  console.log('HomepageBannersAdmin - bannerConfigs:', bannerConfigs)
-  console.log('HomepageBannersAdmin - banners:', banners)
 
   useEffect(() => {
     loadBanners()
@@ -166,67 +148,13 @@ export function HomepageBannersAdmin({
       )
       
       setBanners(updatedBanners)
+      localStorage.setItem(storageKey, JSON.stringify(updatedBanners))
+      window.dispatchEvent(new CustomEvent(eventName))
       
-      // Verificar tamanho dos dados antes de salvar
-      try {
-        const bannersData = JSON.stringify(updatedBanners);
-        if (bannersData.length > 4.5 * 1024 * 1024) { // 4.5MB limite de segurança
-          toast.error("Dados muito grandes. Remova alguns banners ou otimize as imagens.");
-          console.warn(`⚠️ Dados do banner excedem o limite de armazenamento`);
-          return;
-        }
-        
-        localStorage.setItem(storageKey, bannersData);
-        window.dispatchEvent(new CustomEvent(eventName))
-        
-        // Sincronizar com Firebase
-        try {
-          const bannerToSync = updatedBanners.find(banner => banner.id === bannerId)
-          if (bannerToSync) {
-            await bannerSyncServiceV2.syncBannerToFirebase(bannerToSync)
-            console.log(`✅ Banner ${bannerId} sincronizado com Firebase`)
-            
-            // Dispatch event to notify other components about the update
-            window.dispatchEvent(new CustomEvent('bannerUpdated', {
-              detail: { bannerId: bannerId, imageUrl: url }
-            }))
-            
-            // Show immediate success feedback
-            toast.success("Banner updated and synced successfully!")
-          }
-        } catch (syncError: any) {
-          console.warn(`⚠️ Falha na sincronização do banner ${bannerId} com Firebase:`, syncError)
-          // Even if Firebase sync fails, show local success
-          toast.success("Banner updated locally!")
-        }
-      } catch (error: any) {
-        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-          toast.error("Espaço de armazenamento insuficiente. Remova alguns banners ou otimize as imagens.");
-          console.error('QuotaExceededError: Não foi possível salvar os banners no localStorage');
-          
-          // Tentar limpar dados antigos como fallback
-          try {
-            const savedBanners = localStorage.getItem(storageKey);
-            if (savedBanners) {
-              const banners: any[] = JSON.parse(savedBanners);
-              // Manter apenas os banners mais recentes
-              const recentBanners = banners.slice(-3); // Manter apenas os 3 mais recentes
-              localStorage.setItem(storageKey, JSON.stringify(recentBanners));
-              toast.info("Espaço liberado. Tente novamente.");
-            }
-          } catch (cleanupError) {
-            console.error('Erro ao limpar dados antigos:', cleanupError);
-          }
-        } else {
-          console.error("Erro ao salvar banners:", error);
-          toast.error("Erro ao salvar banners");
-        }
-      }
-      
-      // Don't show success message here since we show it above
-    } catch (error: any) {
+      toast.success("Banner updated successfully!")
+    } catch (error) {
       console.error("Upload error:", error)
-      toast.error("Error uploading banner: " + error.message)
+      toast.error("Error uploading banner")
     } finally {
       setLoading(false)
     }
@@ -248,6 +176,13 @@ export function HomepageBannersAdmin({
     try {
       localStorage.setItem(stripConfig.storageKey, JSON.stringify(stripData))
       window.dispatchEvent(new CustomEvent(stripConfig.eventName))
+      
+      // Sincronizar com Firebase
+      try {
+        await bannerSyncServiceV2.syncHomepageBannersToFirebase()
+      } catch (syncError) {
+        console.warn("⚠️ Erro ao sincronizar strip com Firebase:", syncError)
+      }
       
       setStripSaving(false)
       setStripSaved(true)
@@ -340,126 +275,52 @@ export function HomepageBannersAdmin({
     setCropData({x: 0, y: 0, scale: 1})
   }
 
-  const openOverlayEditor = (bannerId: string) => {
-    setEditingOverlay(bannerId)
-  }
-
-  const closeOverlayEditor = () => {
-    setEditingOverlay(null)
-  }
-
-  const updateOverlaySettings = (bannerId: string, settings: Partial<OverlaySettings>) => {
-    const updatedBanners = banners.map(banner => {
-      if (banner.id === bannerId) {
-        return {
-          ...banner,
-          overlaySettings: {
-            ...(banner.overlaySettings || {
-              enabled: false,
-              fromColor: 'black',
-              fromOpacity: 50,
-              viaColor: 'black',
-              viaOpacity: 20,
-              toColor: 'transparent',
-              toOpacity: 0,
-              direction: 'to-r'
-            }),
-            ...settings
-          }
-        }
-      }
-      return banner
-    })
-    
-    setBanners(updatedBanners)
-    localStorage.setItem(storageKey, JSON.stringify(updatedBanners))
-    window.dispatchEvent(new CustomEvent(eventName))
-  }
-
-  const saveOverlaySettings = (bannerId: string) => {
-    const banner = banners.find(b => b.id === bannerId)
-    if (!banner) return
-    
-    const updatedBanners = banners.map(b => 
-      b.id === bannerId 
-        ? { 
-            ...banner, 
-            overlaySettings: banner.overlaySettings || {
-              enabled: false,
-              fromColor: 'black',
-              fromOpacity: 50,
-              viaColor: 'black',
-              viaOpacity: 20,
-              toColor: 'transparent',
-              toOpacity: 0,
-              direction: 'to-r'
-            }
-          }
-        : b
-    )
-    
-    setBanners(updatedBanners)
-    localStorage.setItem(storageKey, JSON.stringify(updatedBanners))
-    window.dispatchEvent(new CustomEvent(eventName))
-    toast.success("Overlay settings saved successfully!")
-  }
-  
-  // Componente BannerCard definido antes do return
   const BannerCard = ({ banner }: { banner: BannerData }) => {
     const config = bannerConfigs.find(c => c.id === banner.id)
     if (!config) return null
-    
-    const isEditing = editingBanner === banner.id
-    const isEditingOverlay = editingOverlay === banner.id
-    
+
     return (
-      <div 
-        key={banner.id}
-        className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300"
-      >
-        <div className="relative">
-          <div 
-            className="relative bg-gray-50 rounded-t-lg overflow-hidden"
-            style={{ 
-              aspectRatio: config.aspectRatio.includes(':') 
-                ? config.aspectRatio.replace(':', '/') 
-                : '16/9',
-              width: '100%'
-            }}
-          >
+      <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md ${
+        viewMode === 'grid' ? 'w-full' : 'flex items-center'
+      }`}>
+        {/* Banner Preview */}
+        <div className={`${viewMode === 'grid' ? 'w-full' : 'w-1/3'}`}>
+          <div className="relative group">
             {banner.currentImage ? (
-              <div className="relative w-full h-full">
-                <Image
-                  src={banner.currentImage}
-                  alt={banner.name}
-                  fill
-                  className="object-cover"
-                  unoptimized={true}
-                />
-                {banner.overlaySettings?.enabled && (
-                  <div 
-                    className="absolute inset-0"
-                    style={{
-                      background: `linear-gradient(${banner.overlaySettings.direction.replace('to-', '')}, ${
-                        banner.overlaySettings.fromColor === 'transparent' 
-                          ? 'transparent' 
-                          : `rgba(${parseInt(banner.overlaySettings.fromColor.slice(1, 3), 16)}, ${parseInt(banner.overlaySettings.fromColor.slice(3, 5), 16)}, ${parseInt(banner.overlaySettings.fromColor.slice(5, 7), 16)}, ${banner.overlaySettings.fromOpacity / 100})`
-                      }, ${
-                        banner.overlaySettings.viaColor === 'transparent' 
-                          ? 'transparent' 
-                          : `rgba(${parseInt(banner.overlaySettings.viaColor.slice(1, 3), 16)}, ${parseInt(banner.overlaySettings.viaColor.slice(3, 5), 16)}, ${parseInt(banner.overlaySettings.viaColor.slice(5, 7), 16)}, ${banner.overlaySettings.viaOpacity / 100})`
-                      }, ${
-                        banner.overlaySettings.toColor === 'transparent' 
-                          ? 'transparent' 
-                          : `rgba(${parseInt(banner.overlaySettings.toColor.slice(1, 3), 16)}, ${parseInt(banner.overlaySettings.toColor.slice(3, 5), 16)}, ${parseInt(banner.overlaySettings.toColor.slice(5, 7), 16)}, ${banner.overlaySettings.toOpacity / 100})`
-                      })`
-                    }}
+              <div className="relative w-full overflow-hidden bg-gray-100">
+                <div 
+                  className="relative"
+                  style={{ 
+                    aspectRatio: config.aspectRatio.includes(':') 
+                      ? config.aspectRatio.replace(':', '/') 
+                      : '16/9',
+                    width: '100%'
+                  }}
+                >
+                  <Image
+                    src={banner.currentImage}
+                    alt={banner.name}
+                    fill
+                    className="object-cover"
+                    unoptimized={true}
                   />
-                )}
+                  {banner.cropMetadata && (
+                    <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                      <Move className="h-3 w-3 mr-1" />
+                      Cropped
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div 
                 className="flex items-center justify-center bg-gray-50"
+                style={{ 
+                  aspectRatio: config.aspectRatio.includes(':') 
+                    ? config.aspectRatio.replace(':', '/') 
+                    : '16/9',
+                  width: '100%'
+                }}
               >
                 <div className="text-center p-4">
                   <ImageIcon className="h-8 w-8 mx-auto text-gray-400 mb-2" />
@@ -483,15 +344,6 @@ export function HomepageBannersAdmin({
                 </Button>
                 <Button
                   size="sm"
-                  variant="secondary"
-                  onClick={() => openOverlayEditor(banner.id)}
-                  className="h-8 px-3"
-                >
-                  <Palette className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">Overlay</span>
-                </Button>
-                <Button
-                  size="sm"
                   variant="destructive"
                   onClick={() => handleDeleteBanner(banner.id)}
                   className="h-8 px-3"
@@ -504,217 +356,61 @@ export function HomepageBannersAdmin({
         </div>
         
         {/* Banner Info */}
-        <div className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 truncate">{banner.name}</h3>
-              <p className="text-sm text-gray-500 mt-1 truncate">{banner.description}</p>
-              <div className="flex items-center mt-2 text-xs text-gray-400">
-                <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-gray-800">
-                  {banner.dimensions}
-                </span>
-                {banner.overlaySettings?.enabled && (
-                  <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800">
-                    Overlay
+        <div className={`${viewMode === 'grid' ? 'p-4' : 'p-4 w-2/3'}`}>
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-semibold text-gray-900">{banner.name}</h3>
+              <p className="text-sm text-gray-500 mt-1">{config.dimensions}</p>
+              <p className="text-xs text-gray-400 mt-1">{config.description}</p>
+            </div>
+            {banner.currentImage && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => openEditor(banner.id)}
+                className="h-8 w-8 p-0"
+              >
+                <Palette className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          
+          {/* Upload Area */}
+          <div className="mt-4">
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Upload New Image</Label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-blue-400 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Upload className="h-5 w-5 text-gray-400 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Choose file</p>
+                    <p className="text-xs text-gray-500">JPG, PNG, GIF (max 5MB)</p>
+                  </div>
+                </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleFileUpload(banner.id, file)
+                  }}
+                  className="hidden"
+                  id={`file-upload-${banner.id}`}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => document.getElementById(`file-upload-${banner.id}`)?.click()}
+                  className="h-8"
+                >
+                  <span className="hidden sm:inline">Select</span>
+                  <span className="sm:hidden">
+                    <Upload className="h-4 w-4" />
                   </span>
-                )}
+                </Button>
               </div>
             </div>
           </div>
         </div>
-        
-        {/* Overlay Editor Modal */}
-        {isEditingOverlay && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Editar Overlay</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={closeOverlayEditor}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="overlay-enabled" className="text-sm font-medium text-gray-700">
-                      Ativar Overlay
-                    </Label>
-                    <Button
-                      variant={banner.overlaySettings?.enabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => updateOverlaySettings(banner.id, { enabled: !banner.overlaySettings?.enabled })}
-                    >
-                      {banner.overlaySettings?.enabled ? "Ativado" : "Desativado"}
-                    </Button>
-                  </div>
-                  
-                  {banner.overlaySettings?.enabled && (
-                    <React.Fragment>
-                      <div className="space-y-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                            Direção do Gradiente
-                          </Label>
-                          <div className="grid grid-cols-4 gap-2">
-                            {[
-                              { value: 'to-r', label: '→' },
-                              { value: 'to-l', label: '←' },
-                              { value: 'to-t', label: '↑' },
-                              { value: 'to-b', label: '↓' },
-                              { value: 'to-br', label: '↘' },
-                              { value: 'to-bl', label: '↙' },
-                              { value: 'to-tr', label: '↗' },
-                              { value: 'to-tl', label: '↖' }
-                            ].map((direction) => (
-                              <Button
-                                key={direction.value}
-                                variant={banner.overlaySettings?.direction === direction.value ? "default" : "outline"}
-                                size="sm"
-                                className="h-10"
-                                onClick={() => updateOverlaySettings(banner.id, { direction: direction.value as any })}
-                              >
-                                {direction.label}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                              Cor Inicial
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="color"
-                                value={banner.overlaySettings?.fromColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { fromColor: e.target.value })}
-                                className="w-12 h-10 p-1"
-                              />
-                              <Input
-                                type="text"
-                                value={banner.overlaySettings?.fromColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { fromColor: e.target.value })}
-                                className="flex-1"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                              Cor Intermediária
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="color"
-                                value={banner.overlaySettings?.viaColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { viaColor: e.target.value })}
-                                className="w-12 h-10 p-1"
-                              />
-                              <Input
-                                type="text"
-                                value={banner.overlaySettings?.viaColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { viaColor: e.target.value })}
-                                className="flex-1"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                              Cor Final
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="color"
-                                value={banner.overlaySettings?.toColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { toColor: e.target.value })}
-                                className="w-12 h-10 p-1"
-                              />
-                              <Input
-                                type="text"
-                                value={banner.overlaySettings?.toColor || '#000000'}
-                                onChange={(e) => updateOverlaySettings(banner.id, { toColor: e.target.value })}
-                                className="flex-1"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                                Opacidade Inicial
-                              </Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={banner.overlaySettings?.fromOpacity || 50}
-                                onChange={(e) => updateOverlaySettings(banner.id, { fromOpacity: parseInt(e.target.value) || 0 })}
-                                className="w-full"
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                                Opacidade Intermediária
-                              </Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={banner.overlaySettings?.viaOpacity || 50}
-                                onChange={(e) => updateOverlaySettings(banner.id, { viaOpacity: parseInt(e.target.value) || 0 })}
-                                className="w-full"
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                                Opacidade Final
-                              </Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={banner.overlaySettings?.toOpacity || 50}
-                                onChange={(e) => updateOverlaySettings(banner.id, { toOpacity: parseInt(e.target.value) || 0 })}
-                                className="w-full"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    
-                      <div className="flex justify-end gap-3">
-                        <Button
-                          variant="outline"
-                          onClick={closeOverlayEditor}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            saveOverlaySettings(banner.id)
-                            closeOverlayEditor()
-                          }}
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          Salvar
-                        </Button>
-                      </div>
-                    </React.Fragment>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     )
   }
