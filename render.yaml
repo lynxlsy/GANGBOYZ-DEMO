@@ -2,8 +2,12 @@ services:
   - type: web
     name: gang-boyz-ecommerce
     env: node
+    plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm run start
+    nodeVersion: 22
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
