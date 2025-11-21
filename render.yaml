@@ -3,7 +3,7 @@ services:
     name: gang-boyz-ecommerce
     env: node
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: ./build.sh
     startCommand: npm run start
     nodeVersion: 22
     envVars:
