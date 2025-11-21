@@ -517,7 +517,7 @@ export const loadEditableContentsSync = (): EditableContent[] => {
 // Keep the synchronous version for backward compatibility
 export const saveEditableContentsSync = (contents: EditableContent[]): void => {
   if (typeof window === 'undefined') return;
-  
+
   try {
     localStorage.setItem("gang-boyz-editable-contents", JSON.stringify(contents));
     // Disparar evento para atualizar outros componentes

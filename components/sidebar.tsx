@@ -20,10 +20,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [showSearchBar, setShowSearchBar] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const { state } = useCart()
+  const { state, openCart } = useCart()
   const { user } = useUser()
   const { activeTheme } = useTheme()
-  
+
   const { search, refreshCache } = useUnifiedSearch()
 
   const cartItemsCount = state.items?.reduce((total: number, item: any) => total + item.quantity, 0) || 0
@@ -136,7 +136,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar - Apenas Mobile - Só renderiza quando aberta */}
       {isOpen && (
-        <div className="md:hidden fixed left-0 top-0 h-full w-80 bg-black/95 backdrop-blur-md border-r border-white/20 z-[9999] transform transition-transform duration-300 ease-in-out translate-x-0">
+        <div className="md:hidden fixed left-0 top-0 h-full w-80 bg-black/95 backdrop-blur-md border-r border-white/20 z-[9999] transform transition-transform duration-300 ease-in-out translate-x-0 animate-in slide-in-from-left duration-300">
           <div className="flex flex-col h-full">
             {/* Header da Sidebar */}
             <div className="flex items-center justify-between p-6 border-b border-white/20">
@@ -185,7 +185,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {/* Barra de Pesquisa */}
             {showSearchBar && (
               <div className="p-4 border-b border-white/10">
-                <div className="relative animate-in slide-in-from-top duration-300">
+                <div className="relative animate-in fade-in zoom-in-95 duration-200 ease-out">
                   <div className="relative">
                     <form onSubmit={handleSearch}>
                       <input
@@ -193,7 +193,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         value={searchQuery}
                         onChange={handleSearchInputChange}
                         placeholder="Pesquisar produtos..."
-                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 touch-manipulation"
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 touch-manipulation backdrop-blur-sm"
                         style={{ 
                           borderColor: 'var(--primary-color)',
                           boxShadow: activeTheme === 'vibrant-red' 
@@ -262,7 +262,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                               {result.type === 'product' && 
                                result.category && 
                                typeof result.category === 'string' &&
-                               result.category.trim() !== '' && 
+                               result.category.trim() !== '' &&
                                result.category.trim() !== '0' &&
                                isNaN(Number(result.category.trim())) && (
                                 <p className="text-gray-400 text-xs truncate">
@@ -421,7 +421,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 
                 {/* Carrinho */}
                 <button 
-                  onClick={() => handleNavigation('/cart')}
+                  onClick={openCart}
                   className="relative flex items-center space-x-2 text-white hover:text-blue-400 transition-colors duration-200 group touch-manipulation"
                 >
                   <ShoppingCart className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />

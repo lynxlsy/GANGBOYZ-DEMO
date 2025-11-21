@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, X, ArrowRight, Tag, Image as ImageIcon, Star, Flame } from "lucide-react"
+import { Search, X, ArrowRight, Tag, Image as ImageIcon, Star, Flame, Heart } from "lucide-react"
 import { useUnifiedSearch, SearchResult } from "@/lib/unified-id-system"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -205,7 +205,7 @@ export default function SearchResultsPage() {
                           
                           {result.category && 
                            typeof result.category === 'string' &&
-                           result.category.trim() !== '' && 
+                           result.category.trim() !== '' &&
                            result.category.trim() !== '0' &&
                            isNaN(Number(result.category.trim())) && (
                             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">

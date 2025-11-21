@@ -13,18 +13,25 @@ interface Coupon {
   id: string
   code: string
   name: string
-  discountType: "percentage" | "fixed"
+  discountType: "percentage" | "fixed" | "free_shipping"
   discountValue: number
   isActive: boolean
+}
+
+interface FormData {
+  code: string
+  name: string
+  discountType: "percentage" | "fixed" | "free_shipping"
+  discountValue: number
 }
 
 export function CouponManagement() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [isEditing, setIsEditing] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     code: "",
     name: "",
-    discountType: "percentage" as "percentage" | "fixed",
+    discountType: "percentage",
     discountValue: 0
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -46,7 +53,7 @@ export function CouponManagement() {
           id: "1",
           code: "DESC10",
           name: "Desconto de 10%",
-          discountType: "percentage" as "percentage" | "fixed",
+          discountType: "percentage",
           discountValue: 10,
           isActive: true
         },
@@ -54,8 +61,16 @@ export function CouponManagement() {
           id: "2",
           code: "DESC20",
           name: "Desconto de 20%",
-          discountType: "percentage" as "percentage" | "fixed",
+          discountType: "percentage",
           discountValue: 20,
+          isActive: true
+        },
+        {
+          id: "3",
+          code: "FRETEGRATIS",
+          name: "Frete Grátis",
+          discountType: "free_shipping",
+          discountValue: 0,
           isActive: true
         }
       ]
@@ -82,12 +97,14 @@ export function CouponManagement() {
       newErrors.name = "Nome é obrigatório"
     }
     
-    if (formData.discountValue <= 0) {
-      newErrors.discountValue = "Valor deve ser maior que zero"
-    }
-    
-    if (formData.discountType === "percentage" && formData.discountValue > 100) {
-      newErrors.discountValue = "Percentual não pode ser maior que 100%"
+    if (formData.discountType !== "free_shipping") {
+      if (formData.discountValue <= 0) {
+        newErrors.discountValue = "Valor deve ser maior que zero"
+      }
+      
+      if (formData.discountType === "percentage" && formData.discountValue > 100) {
+        newErrors.discountValue = "Percentual não pode ser maior que 100%"
+      }
     }
     
     setErrors(newErrors)
@@ -219,8 +236,8 @@ export function CouponManagement() {
                   id="code"
                   value={formData.code}
                   onChange={(e) => setFormData({...formData, code: e.target.value})}
-                  placeholder="Ex: DESC10, PROMO20"
-                  className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2"
+                  placeholder="Ex: DESC10, PROMO20, FRETEGRATIS"
+                  className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2 backdrop-blur-sm"
                 />
                 {errors.code && <p className="text-red-600 text-sm mt-1">{errors.code}</p>}
               </div>
@@ -231,8 +248,8 @@ export function CouponManagement() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="Ex: Desconto de 10%, Promoção Especial"
-                  className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2"
+                  placeholder="Ex: Desconto de 10%, Promoção Especial, Frete Grátis"
+                  className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2 backdrop-blur-sm"
                 />
                 {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
               </div>
@@ -242,30 +259,40 @@ export function CouponManagement() {
                 <select
                   id="discountType"
                   value={formData.discountType}
-                  onChange={(e) => setFormData({...formData, discountType: e.target.value as "percentage" | "fixed"})}
-                  className="w-full mt-1 bg-white border border-neutral-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  onChange={(e) => setFormData({...formData, discountType: e.target.value as "percentage" | "fixed" | "free_shipping"})}
+                  className="w-full mt-1 bg-white border border-neutral-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 backdrop-blur-sm"
                 >
                   <option value="percentage" className="bg-white text-gray-900">Percentual (%)</option>
                   <option value="fixed" className="bg-white text-gray-900">Valor Fixo (R$)</option>
+                  <option value="free_shipping" className="bg-white text-gray-900">Frete Grátis</option>
                 </select>
               </div>
               
-              <div>
-                <Label htmlFor="discountValue" className="text-gray-800">
-                  {formData.discountType === "percentage" ? "Percentual (%)" : "Valor (R$)"} *
-                </Label>
-                <Input
-                  id="discountValue"
-                  type="number"
-                  value={formData.discountValue || ""}
-                  onChange={(e) => setFormData({...formData, discountValue: parseFloat(e.target.value) || 0})}
-                  placeholder={formData.discountType === "percentage" ? "10" : "20"}
-                  className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2"
-                  min="0"
-                  step="0.01"
-                />
-                {errors.discountValue && <p className="text-red-600 text-sm mt-1">{errors.discountValue}</p>}
-              </div>
+              {formData.discountType !== "free_shipping" ? (
+                <div>
+                  <Label htmlFor="discountValue" className="text-gray-800">
+                    {formData.discountType === "percentage" ? "Percentual (%)" : "Valor (R$)"} *
+                  </Label>
+                  <Input
+                    id="discountValue"
+                    type="number"
+                    value={formData.discountValue || ""}
+                    onChange={(e) => setFormData({...formData, discountValue: parseFloat(e.target.value) || 0})}
+                    placeholder={formData.discountType === "percentage" ? "10" : "20"}
+                    className="mt-1 bg-white text-gray-900 border-neutral-300 focus:ring-red-500 focus:ring-2 backdrop-blur-sm"
+                    min="0"
+                    step="0.01"
+                  />
+                  {errors.discountValue && <p className="text-red-600 text-sm mt-1">{errors.discountValue}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 w-full">
+                    <p className="text-green-800 text-sm font-medium">Cupom de frete grátis selecionado</p>
+                    <p className="text-green-700 text-xs mt-1">Este cupom concederá frete grátis para pedidos elegíveis</p>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="flex gap-2 mt-4">
@@ -318,9 +345,13 @@ export function CouponManagement() {
                         </div>
                         <p className="text-sm text-gray-600 mt-1">
                           Código: <span className="font-mono text-gray-900">{coupon.code}</span> • 
-                          Desconto: <span className="text-gray-900">{coupon.discountType === "percentage" 
-                            ? `${coupon.discountValue}%` 
-                            : `R$ ${coupon.discountValue.toFixed(2).replace(".", ",")}`}</span>
+                          Desconto: <span className="text-gray-900">
+                            {coupon.discountType === "percentage" 
+                              ? `${coupon.discountValue}%` 
+                              : coupon.discountType === "fixed"
+                              ? `R$ ${coupon.discountValue.toFixed(2).replace(".", ",")}`
+                              : "Frete Grátis"}
+                          </span>
                         </p>
                       </div>
                       

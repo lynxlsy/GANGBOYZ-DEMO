@@ -17,6 +17,7 @@ import { CategoryConfig } from "@/lib/category-config"
 import { SeasonHighlightsProductSelector } from "@/components/season-highlights-product-selector"
 import { AdminProductModal } from "@/components/admin-product-modal"
 import { eventManager } from "@/lib/event-manager"
+import { CustomMobileHeader } from "@/components/em-alta-mobile-header"
 
 interface ProductFiltersState {
   sortOption: string
@@ -31,9 +32,10 @@ interface ProductCategoryPageProps {
   subcategoryKey: string
   isMainCategory?: boolean // New prop to indicate if this is a main category page
   subcategoryKeys?: string[] // New prop for main category pages to specify which subcategories to include
+  customMobileHeader?: React.ReactNode // Custom mobile header for special cases like /em-alta
 }
 
-export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = false, subcategoryKeys = [] }: ProductCategoryPageProps) {
+export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = false, subcategoryKeys = [], customMobileHeader }: ProductCategoryPageProps) {
   const router = useRouter()
   const { products, getActiveProductsByCategory } = useProducts()
   const { addItem } = useCart()
@@ -53,7 +55,10 @@ export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = f
 
   // Get products for this category or categories
   const categoryProducts = useMemo(() => {
-    if (isMainCategory && subcategoryKeys.length > 0) {
+    if (subcategoryKey === 'em-alta') {
+      // For "em-alta" category, get products with destacarEmAlta flag set to true
+      return products.filter((product: any) => product.destacarEmAlta === true && product.status !== 'inativo')
+    } else if (isMainCategory && subcategoryKeys.length > 0) {
       // For main category pages, get products from all specified subcategories
       let allProducts: any[] = []
       subcategoryKeys.forEach(key => {
@@ -71,7 +76,7 @@ export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = f
       // For subcategory pages, get products from the specific subcategory
       return getActiveProductsByCategory(subcategoryKey)
     }
-  }, [getActiveProductsByCategory, subcategoryKey, isMainCategory, subcategoryKeys])
+  }, [getActiveProductsByCategory, subcategoryKey, isMainCategory, subcategoryKeys, products])
 
   // Apply filters to products
   const filteredAndSortedProducts = useMemo(() => {
@@ -348,7 +353,12 @@ export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = f
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
+      {/* Conditionally render custom mobile header for /em-alta page */}
+      {subcategoryKey === 'em-alta' ? (
+        <CustomMobileHeader />
+      ) : (
+        <Header />
+      )}
       
       {/* Black background separator between header and content */}
       <div className="hidden md:block w-full h-[5cm] bg-black"></div>
@@ -365,7 +375,7 @@ export function ProductCategoryPage({ config, subcategoryKey, isMainCategory = f
           </div>
 
           {/* Conteúdo Principal */}
-          <div className="flex-1 py-4 pl-0 md:pl-8">
+          <div className="flex-1 py-4 pl-0 md:pl-8 pt-24">
             {/* Header da Categoria */}
             <div className="px-4 md:px-8 py-8">
               <div className="mb-4">

@@ -31,7 +31,6 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
   const [editableSubtitle, setEditableSubtitle] = useState("Os produtos mais vendidos e em alta")
   const [editingTitle, setEditingTitle] = useState("PRODUTOS EM DESTAQUE")
   const [editingSubtitle, setEditingSubtitle] = useState("Os produtos mais vendidos e em alta")
-  const [isEditingSection, setIsEditingSection] = useState(false) // New state to track section edit mode
   const { activeTheme } = useTheme()
   const { products } = useProducts()
   
@@ -260,7 +259,6 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
       await updateContentById("hot-subtitle", editingSubtitle)
       setEditableTitle(editingTitle)
       setEditableSubtitle(editingSubtitle)
-      setIsEditingSection(false); // Exit edit mode after saving
       toast.success("O título e descrição da seção foram atualizados com sucesso.")
     } catch (error) {
       console.error("Erro ao salvar configuração:", error)
@@ -519,9 +517,9 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
     <div>
       <section className="pt-24 pb-16 bg-black">
         <div className="container mx-auto px-4">
-          {/* Título Hot */}
+          {/* Título Hot - Using inline editing pattern like other components */}
           <div className="text-center mb-12 relative">
-            {isEditMode && isEditingSection ? (
+            {isEditMode ? (
               <div className="mb-6">
                 <div className="flex items-center justify-center gap-2 mb-4">
                   <input
@@ -536,10 +534,7 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                     <Save className="h-4 w-4 mr-1" />
                     Salvar
                   </Button>
-                  <Button onClick={() => {
-                    handleCancelEdit();
-                    setIsEditingSection(false);
-                  }} variant="outline" size="sm" className="bg-gray-700 text-white hover:bg-gray-600">
+                  <Button onClick={handleCancelEdit} variant="outline" size="sm" className="bg-gray-700 text-white hover:bg-gray-600">
                     Cancelar
                   </Button>
                 </div>
@@ -564,22 +559,6 @@ export function HotSection({ isEditMode = false }: { isEditMode?: boolean }) {
                   {editableSubtitle}
                 </p>
               </>
-            )}
-            {isEditMode && !isEditingSection && (
-              <div className="flex justify-center gap-4 mt-6 flex-wrap">
-                <Button
-                  onClick={() => {
-                    // Set the editing values to current editable values when clicking edit
-                    setEditingTitle(editableTitle);
-                    setEditingSubtitle(editableSubtitle);
-                    setIsEditingSection(true);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
-                >
-                  <Edit3 className="h-5 w-5" />
-                  Editar Seção
-                </Button>
-              </div>
             )}
           </div>
 

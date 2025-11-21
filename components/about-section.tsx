@@ -349,11 +349,26 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
                 </div>
               </div>
             ) : (
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
-                {editableTitle}
-              </h2>
+              <>
+                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+                  {editableTitle}
+                </h2>
+                <div className="w-24 h-1 red-bg mx-auto"></div>
+                {globalEditMode && (
+                  <div className="flex justify-center gap-4 mt-6">
+                    <Button
+                      onClick={() => {
+                        setEditingTitle(editableTitle);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
+                    >
+                      <Edit3 className="h-5 w-5" />
+                      Editar Seção
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
-            <div className="w-24 h-1 red-bg mx-auto"></div>
           </div>
 
           <div className="max-w-5xl mx-auto mb-20 relative">
@@ -376,9 +391,24 @@ export function AboutSection({ isEditMode = false }: { isEditMode?: boolean }) {
                 </div>
               </div>
             ) : (
-              <p className="text-gray-200 text-lg md:text-xl leading-relaxed text-left">
-                {editableDescription}
-              </p>
+              <>
+                <p className="text-gray-200 text-lg md:text-xl leading-relaxed text-left">
+                  {editableDescription}
+                </p>
+                {globalEditMode && (
+                  <div className="flex justify-center gap-4 mt-6">
+                    <Button
+                      onClick={() => {
+                        setEditingDescription(editableDescription);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
+                    >
+                      <Edit3 className="h-5 w-5" />
+                      Editar Seção
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

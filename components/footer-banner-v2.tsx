@@ -52,7 +52,7 @@ export function FooterBanner() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="relative w-full h-full">
+      <div className="relative w-full" style={{ aspectRatio: '2/1' }}>
         {footerBanner.mediaType === 'video' ? (
           <video
             src={footerBanner.currentImage}

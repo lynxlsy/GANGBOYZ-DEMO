@@ -135,13 +135,8 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
-      
-      {/* Mobile Header for Payment Page */}
-      <MobileHeaderSubcategory />
-      
       {/* Black spacer for desktop header separation */}
-      <div className="hidden md:block h-20 bg-black"></div>
+      <div className="hidden md:block h-6 bg-black"></div>
       
       <main className="pt-0">
         <div className="max-w-6xl mx-auto p-4 md:p-6">
@@ -222,56 +217,62 @@ export default function PaymentPage() {
               <h2 className="text-xl font-bold mb-4">Método de Pagamento</h2>
               
               <div className="space-y-4">
-                <div className="space-y-3">
-                  <label className="flex items-center p-3 bg-neutral-800 rounded-lg cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="credit"
-                      checked={paymentMethod === "credit"}
-                      onChange={() => setPaymentMethod("credit")}
-                      className="h-4 w-4 text-red-600"
-                    />
-                    <span className="ml-3 text-sm">Cartão de Crédito</span>
-                  </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div 
+                    onClick={() => setPaymentMethod("credit")}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                      paymentMethod === "credit" 
+                        ? "border-red-500 bg-red-500/10" 
+                        : "border-neutral-700 bg-neutral-800 hover:border-neutral-600"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium">Cartão de Crédito</span>
+                    </div>
+                  </div>
                   
-                  <label className="flex items-center p-3 bg-neutral-800 rounded-lg cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="debit"
-                      checked={paymentMethod === "debit"}
-                      onChange={() => setPaymentMethod("debit")}
-                      className="h-4 w-4 text-red-600"
-                    />
-                    <span className="ml-3 text-sm">Cartão de Débito</span>
-                  </label>
+                  <div 
+                    onClick={() => setPaymentMethod("debit")}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                      paymentMethod === "debit" 
+                        ? "border-red-500 bg-red-500/10" 
+                        : "border-neutral-700 bg-neutral-800 hover:border-neutral-600"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium">Cartão de Débito</span>
+                    </div>
+                  </div>
                   
-                  <label className="flex items-center p-3 bg-neutral-800 rounded-lg cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="pix"
-                      checked={paymentMethod === "pix"}
-                      onChange={() => setPaymentMethod("pix")}
-                      className="h-4 w-4 text-red-600"
-                    />
-                    <span className="ml-3 text-sm">PIX</span>
-                  </label>
-                  
-                  <label className="flex items-center p-3 bg-neutral-800 rounded-lg cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="boleto"
-                      checked={paymentMethod === "boleto"}
-                      onChange={() => setPaymentMethod("boleto")}
-                      className="h-4 w-4 text-red-600"
-                    />
-                    <span className="ml-3 text-sm">Boleto Bancário</span>
-                  </label>
+                  <div 
+                    onClick={() => setPaymentMethod("pix")}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                      paymentMethod === "pix" 
+                        ? "border-red-500 bg-red-500/10" 
+                        : "border-neutral-700 bg-neutral-800 hover:border-neutral-600"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium">PIX</span>
+                    </div>
+                  </div>
                 </div>
-                
+
                 {paymentMethod === "credit" || paymentMethod === "debit" ? (
                   <div className="space-y-4 mt-4">
                     <div>
@@ -317,12 +318,6 @@ export default function PaymentPage() {
                 {paymentMethod === "pix" ? (
                   <div className="mt-4 p-4 bg-neutral-800 rounded-lg text-center">
                     <p className="text-sm text-neutral-300">Após confirmar o pagamento, você será redirecionado para a tela do PIX</p>
-                  </div>
-                ) : null}
-                
-                {paymentMethod === "boleto" ? (
-                  <div className="mt-4 p-4 bg-neutral-800 rounded-lg text-center">
-                    <p className="text-sm text-neutral-300">O boleto será gerado após a confirmação do pagamento</p>
                   </div>
                 ) : null}
                 

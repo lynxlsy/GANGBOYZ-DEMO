@@ -74,7 +74,7 @@ export function FunctionalSearch({ className = "" }: FunctionalSearchProps) {
   }
 
   return (
-    <div className={`px-[80px] pb-4 animate-in slide-in-from-top duration-300 search-container ${className}`}>
+    <div className={`px-[80px] pb-4 animate-in slide-in-from-top-4 duration-500 search-container ${className}`}>
       <div className="relative w-full max-w-2xl mx-auto hidden md:block">
         <div ref={searchRef} className="relative">
           <form onSubmit={handleSearchSubmit} className="relative">

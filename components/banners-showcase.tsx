@@ -1,17 +1,18 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { ArrowRight, Play, Edit3, Save, Upload, Plus, X, Search, Trash2 } from "lucide-react"
+import { ArrowRight, Play, Edit3, Save, Upload, Plus, X, Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { BannerRenderer } from "@/components/banner-renderer"
 import { AdminEditButton } from "@/components/admin-edit-button"
 import { AdminEditModal } from "@/components/admin-edit-modal"
 import { AdminProductModal } from "@/components/admin-product-modal"
 import { getContentById, updateContentById, getContentByIdAsync } from "@/lib/editable-content-utils"
 import { toast } from "sonner"
+import { useRouter } from 'next/navigation'
 
 interface ShowcaseBanner {
   id: string
@@ -23,9 +24,8 @@ interface ShowcaseBanner {
   link?: string
   buttonText: string
   overlayColor: string
+  tag?: string
 }
-
-// Interface para produtos em destaque removida conforme solicitado
 
 // Add interface for editing banner texts
 interface EditingBannerTexts {
@@ -34,9 +34,12 @@ interface EditingBannerTexts {
   subtitle: string
   description: string
   buttonText: string
+  tag: string
+  overlayColor: string
 }
 
 export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }) {
+  const router = useRouter()
   const [banners, setBanners] = useState<ShowcaseBanner[]>([])
   const [config, setConfig] = useState({
     title: "DESTAQUES DA TEMPORADA",
@@ -51,6 +54,8 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
   const [editingBannerTexts, setEditingBannerTexts] = useState<EditingBannerTexts | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // Add state for image preview
+  const [imagePreviews, setImagePreviews] = useState<Record<string, string>>({})
   // Add state for product modal
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [currentProduct, setCurrentProduct] = useState<any>(null)
@@ -58,8 +63,8 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
   // Add state for about section
   const [aboutTitle, setAboutTitle] = useState("Sobre a Gang Boyz")
   const [aboutDescription, setAboutDescription] = useState("A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.")
-  const [editingAboutTitle, setEditingAboutTitle] = useState("")
-  const [editingAboutDescription, setEditingAboutDescription] = useState("")
+  const [editingAboutTitle, setEditingAboutTitle] = useState("Sobre a Gang Boyz")
+  const [editingAboutDescription, setEditingAboutDescription] = useState("A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.")
   const [isEditingAboutSection, setIsEditingAboutSection] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bannerContainerRef = useRef<HTMLDivElement>(null)
@@ -73,7 +78,23 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
         if (response.ok) {
           const data = await response.json();
           if (data['gang-boyz-showcase-banners']) {
-            setBanners(JSON.parse(data['gang-boyz-showcase-banners']));
+            const loadedBanners = JSON.parse(data['gang-boyz-showcase-banners']);
+            // Preserve preview URLs when loading banners
+            setBanners(prevBanners => {
+              const previewBannerIds = Object.keys(imagePreviews);
+              if (previewBannerIds.length === 0) {
+                return loadedBanners;
+              }
+              
+              // Merge loaded banners with preview URLs
+              return loadedBanners.map((loadedBanner: ShowcaseBanner) => {
+                if (previewBannerIds.includes(loadedBanner.id)) {
+                  // Keep the preview URL for this banner
+                  return { ...loadedBanner, image: imagePreviews[loadedBanner.id] };
+                }
+                return loadedBanner;
+              });
+            });
             return;
           }
         }
@@ -84,7 +105,23 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
       // Fallback to localStorage
       const savedBanners = localStorage.getItem("gang-boyz-showcase-banners");
       if (savedBanners) {
-        setBanners(JSON.parse(savedBanners));
+        const loadedBanners = JSON.parse(savedBanners);
+        // Preserve preview URLs when loading banners
+        setBanners(prevBanners => {
+          const previewBannerIds = Object.keys(imagePreviews);
+          if (previewBannerIds.length === 0) {
+            return loadedBanners;
+          }
+          
+          // Merge loaded banners with preview URLs
+          return loadedBanners.map((loadedBanner: ShowcaseBanner) => {
+            if (previewBannerIds.includes(loadedBanner.id)) {
+              // Keep the preview URL for this banner
+              return { ...loadedBanner, image: imagePreviews[loadedBanner.id] };
+            }
+            return loadedBanner;
+          });
+        });
       } else {
         // Sem banners padrão - aguardando configuração pelo admin
         setBanners([]);
@@ -110,13 +147,13 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
       }
       
       // Carregar conteúdo da seção "Sobre a Gang Boyz"
-      const aboutTitleContent = await getContentByIdAsync("about-gang-boyz-title");
+      const aboutTitleContent = await getContentByIdAsync("about-title");
       if (aboutTitleContent) {
         setAboutTitle(aboutTitleContent);
         setEditingAboutTitle(aboutTitleContent);
       }
       
-      const aboutDescriptionContent = await getContentByIdAsync("about-gang-boyz-description");
+      const aboutDescriptionContent = await getContentByIdAsync("about-description");
       if (aboutDescriptionContent) {
         setAboutDescription(aboutDescriptionContent);
         setEditingAboutDescription(aboutDescriptionContent);
@@ -177,18 +214,8 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
     }
   }, []);
 
-  // Initialize scroll position for infinite scroll
-  useEffect(() => {
-    if (banners.length > 0 && bannerContainerRef.current) {
-      // Set initial scroll position to the middle of the duplicated banners
-      // This ensures we start with the first set of banners and have room to scroll in both directions
-      const container = bannerContainerRef.current;
-      const scrollWidth = container.scrollWidth;
-      const halfScrollWidth = scrollWidth / 2;
-      // Start slightly offset to avoid edge cases
-      container.scrollLeft = halfScrollWidth / 2 + 10;
-    }
-  }, [banners]);
+  // Removido o useEffect de inicialização de scroll position
+  // Não é mais necessário com a remoção do scroll infinito
 
   // Auto-scroll functionality
   useEffect(() => {
@@ -276,45 +303,10 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
     };
   }, [banners]);
 
-  // Throttle scroll handler for better performance
-  const throttledHandleBannerScroll = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    let ticking = false;
-    
-    const throttle = (func: () => void) => {
-      return function() {
-        if (!ticking) {
-          requestAnimationFrame(() => {
-            func();
-            ticking = false;
-          });
-          ticking = true;
-        }
-      };
-    };
-    
-    throttledHandleBannerScroll.current = throttle(handleBannerScroll);
-  }, [banners]);
-
   // Handle infinite scroll by jumping between duplicate sets
   const handleBannerScroll = () => {
-    if (bannerContainerRef.current && banners.length > 0) {
-      const container = bannerContainerRef.current;
-      const scrollPosition = container.scrollLeft;
-      const scrollWidth = container.scrollWidth;
-      const halfScrollWidth = scrollWidth / 2;
-      
-      // Infinite scroll - when we reach near the end, jump to the beginning
-      // But only jump when we're actually at the edge to prevent jumping during normal scrolling
-      if (scrollPosition >= scrollWidth - container.clientWidth - 10) {
-        // At the end, jump to the beginning
-        container.scrollLeft = scrollPosition - halfScrollWidth;
-      } else if (scrollPosition <= 10) {
-        // At the beginning, jump to the end
-        container.scrollLeft = scrollPosition + halfScrollWidth;
-      }
-    }
+    // Removido o comportamento de scroll infinito para permitir navegação livre
+    // Agora o usuário pode rolar normalmente sem ser redirecionado automaticamente
   }
 
   const handleSaveConfig = () => {
@@ -372,8 +364,8 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
     setAboutDescription(editingAboutDescription)
     
     // Save to localStorage/backend
-    updateContentById("about-gang-boyz-title", editingAboutTitle);
-    updateContentById("about-gang-boyz-description", editingAboutDescription);
+    updateContentById("about-title", editingAboutTitle);
+    updateContentById("about-description", editingAboutDescription);
     
     // Also save to backend
     try {
@@ -383,7 +375,7 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          id: 'about-gang-boyz-title', 
+          id: 'about-title', 
           content: editingAboutTitle 
         }),
       });
@@ -394,7 +386,7 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          id: 'about-gang-boyz-description', 
+          id: 'about-description', 
           content: editingAboutDescription 
         }),
       });
@@ -420,7 +412,9 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
       title: banner.title,
       subtitle: banner.subtitle,
       description: banner.description,
-      buttonText: banner.buttonText
+      buttonText: banner.buttonText,
+      tag: banner.tag || "",
+      overlayColor: banner.overlayColor || "from-black/50 via-black/20 to-transparent"
     })
   }
 
@@ -435,7 +429,9 @@ export function BannersShowcase({ isEditMode = false }: { isEditMode?: boolean }
             title: editingBannerTexts.title,
             subtitle: editingBannerTexts.subtitle,
             description: editingBannerTexts.description,
-            buttonText: editingBannerTexts.buttonText
+            buttonText: editingBannerTexts.buttonText,
+            tag: editingBannerTexts.tag,
+            overlayColor: editingBannerTexts.overlayColor
           }
         : banner
     )
@@ -728,6 +724,13 @@ export default function ${title.replace(/\s+/g, '')}Page() {
       return
     }
 
+    // Create a preview URL immediately
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreviews(prev => ({
+      ...prev,
+      [editingBannerId]: previewUrl
+    }))
+
     setUploading(true)
     
     try {
@@ -745,15 +748,24 @@ export default function ${title.replace(/\s+/g, '')}Page() {
 
       const { url } = await response.json()
       
-      // Update the banner image
+      // Update the banner image directly in state without triggering a full reload
+      setBanners(prevBanners => 
+        prevBanners.map(banner => 
+          banner.id === editingBannerId 
+            ? { ...banner, image: url } 
+            : banner
+        )
+      )
+      
+      // Also update localStorage directly
       const updatedBanners = banners.map(banner => 
         banner.id === editingBannerId 
           ? { ...banner, image: url } 
           : banner
       )
-      
-      setBanners(updatedBanners)
       localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
+      
+      // Only dispatch event after localStorage is updated
       window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
       
       toast.success("Imagem atualizada com sucesso!")
@@ -761,6 +773,16 @@ export default function ${title.replace(/\s+/g, '')}Page() {
     } catch (error) {
       console.error("Erro no upload:", error)
       toast.error("Erro ao fazer upload da imagem")
+      
+      // Remove the preview only on error
+      setImagePreviews(prev => {
+        const newPreviews = { ...prev }
+        if (newPreviews[editingBannerId]) {
+          URL.revokeObjectURL(newPreviews[editingBannerId])
+          delete newPreviews[editingBannerId]
+        }
+        return newPreviews
+      })
     } finally {
       setUploading(false)
       setEditingBannerId(null)
@@ -769,6 +791,27 @@ export default function ${title.replace(/\s+/g, '')}Page() {
       }
     }
   }
+
+  // Effect to clean up preview URLs when banners change
+  useEffect(() => {
+    // Clean up preview URLs that are no longer needed
+    setImagePreviews(prev => {
+      const newPreviews = { ...prev }
+      let changed = false
+      
+      Object.keys(newPreviews).forEach(bannerId => {
+        const banner = banners.find(b => b.id === bannerId)
+        if (banner && banner.image && !banner.image.startsWith('blob:') && banner.image !== newPreviews[bannerId]) {
+          // If the banner has a real image URL that's different from the preview, remove the preview
+          URL.revokeObjectURL(newPreviews[bannerId])
+          delete newPreviews[bannerId]
+          changed = true
+        }
+      })
+      
+      return changed ? newPreviews : prev
+    })
+  }, [banners])
 
   return (
     <section className="py-16 bg-black relative">
@@ -857,6 +900,21 @@ export default function ${title.replace(/\s+/g, '')}Page() {
               <p className="text-gray-300 text-lg max-w-2xl mx-auto">
                 {editableDescription}
               </p>
+              {isEditMode && (
+                <div className="flex justify-center gap-4 mt-6">
+                  <Button
+                    onClick={() => {
+                      // Set the editing values to current editable values when clicking edit
+                      setEditingTitle(editableTitle);
+                      setEditingDescription(editableDescription);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-2"
+                  >
+                    <Edit3 className="h-5 w-5" />
+                    Editar Seção
+                  </Button>
+                </div>
+              )}
             </>
           )}
           {/* Add Edit and Add Banner buttons for the section */}
@@ -895,7 +953,8 @@ export default function ${title.replace(/\s+/g, '')}Page() {
                     image: "/placeholder-default.svg",
                     link: '/explore/' + slug, // Link to the dynamic explore page
                     buttonText: "EXPLORAR",
-                    overlayColor: "from-black"
+                    overlayColor: "from-black/50 via-black/20 to-transparent",
+                    tag: "Streetwear Premium"
                   }
                   
                   // Add the new banner to the list
@@ -1056,188 +1115,227 @@ export default function ${title.replace(/\s+/g, '')}Page() {
 
         {/* Product Search Modal - Removido conforme solicitado */}
 
-        <div 
-          ref={bannerContainerRef}
-          className="flex overflow-x-auto pb-4 -mx-4 px-4 md:grid md:grid-cols-2 lg:grid-cols-3 gap-8 md:block md:overflow-visible md:mx-0 md:px-0" 
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', scrollBehavior: 'smooth' }}
-          onScroll={throttledHandleBannerScroll.current || handleBannerScroll}
-        >
-          <style jsx>{'.flex::-webkit-scrollbar {display: none;}'}</style>
-          {/* Duplicate banners for infinite scroll effect */}
-          {[...banners, ...banners].map((banner, index) => (
-            <div
-              key={banner.id + '-' + index}
-              className="relative h-[400px] overflow-hidden group cursor-pointer bg-gray-900 rounded-lg flex-shrink-0 w-[300px] md:w-auto"
-              onClick={() => {
-                if (isEditMode) {
-                  handleEditBannerImage(banner.id)
-                } else if (banner.link) {
-                  window.location.href = banner.link
-                }
-              }}
-            >
-              {/* Background Media */}
-              <div className="absolute inset-0">
-                {banner.mediaType === 'video' ? (
-                  <video
-                    src={banner.image}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
-                ) : banner.mediaType === 'banner' ? (
-                  <BannerRenderer
-                    bannerId={banner.image}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                ) : (
-                  <img
-                    src={banner.image}
-                    alt={banner.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
+        {/* Banner Grid Section with Navigation Arrows */}
+        <div className="relative">
+          {/* Navigation arrows for banner carousel - Always visible on mobile */}
+          <button
+            onClick={() => {
+              if (bannerContainerRef.current) {
+                bannerContainerRef.current.scrollBy({
+                  left: -300,
+                  behavior: 'smooth'
+                });
+              }
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-50 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-70 hover:opacity-100 transition-all duration-300 shadow-lg cursor-pointer touch-manipulation md:hidden"
+            aria-label="Banner anterior"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          
+          <button
+            onClick={() => {
+              if (bannerContainerRef.current) {
+                bannerContainerRef.current.scrollBy({
+                  left: 300,
+                  behavior: 'smooth'
+                });
+              }
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-50 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full opacity-70 hover:opacity-100 transition-all duration-300 shadow-lg cursor-pointer touch-manipulation md:hidden"
+            aria-label="Próximo banner"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          
+          <div 
+            ref={bannerContainerRef}
+            className="flex overflow-x-auto pb-4 -mx-4 px-4 md:grid md:grid-cols-2 lg:grid-cols-3 gap-8 md:block md:overflow-visible md:mx-0 md:px-0" 
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', scrollBehavior: 'smooth' }}
+          >
+            <style jsx>{'.flex::-webkit-scrollbar {display: none;}'}</style>
+            {/* Banner items without duplication */}
+            {banners.map((banner, index) => (
+              <div
+                key={banner.id + '-' + index}
+                className="relative h-[400px] overflow-hidden group cursor-pointer bg-gray-900 rounded-lg flex-shrink-0 w-[300px] md:w-auto"
+                onClick={() => {
+                  if (isEditMode) {
+                    handleEditBannerImage(banner.id)
+                  } else if (banner.link) {
+                    router.push(banner.link)
+                  }
+                }}
+              >
+                {/* Background Media */}
+                <div className="absolute inset-0">
+                  {banner.mediaType === 'video' ? (
+                    <video
+                      src={banner.image}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    />
+                  ) : banner.mediaType === 'banner' ? (
+                    <BannerRenderer
+                      bannerId={banner.image}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                  ) : (
+                    <img
+                      src={imagePreviews[banner.id] || banner.image}
+                      alt={banner.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                  )}
+                  <div className={`absolute inset-0 bg-gradient-to-r ${banner.overlayColor || 'from-black/50 via-black/20 to-transparent'}`} />
+                </div>
+                
+                {/* Edit overlay for individual banner */}
+                {isEditMode && (
+                  <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="bg-yellow-400 text-gray-900 px-3 py-2 rounded-lg flex items-center gap-2">
+                      <Edit3 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Editar Imagem</span>
+                    </div>
+                  </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
+                
+                {/* Content */}
+                <div className="relative z-10 p-6 h-full flex flex-col justify-between">
+                  <div>
+                    {/* Optional tag/label */}
+                    {banner.tag && (
+                      <div className="mb-4">
+                        <span className="text-xs font-bold tracking-wider text-white/90 uppercase bg-white/20 px-3 py-1 rounded-full">
+                          {banner.tag}
+                        </span>
+                      </div>
+                    )}
+                    <h3 className="text-2xl font-black text-white mb-3">
+                      {banner.title}
+                    </h3>
+                    <p className="text-sm text-white/90 leading-relaxed">
+                      {banner.description}
+                    </p>
+                  </div>
+                  <Button 
+                    size="default" 
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md has-[>svg]:px-4 bg-white hover:bg-gray-200 text-black font-bold px-6 py-3 w-fit shadow-lg transition-all duration-300 group-hover:scale-105 border border-white/30"
+                  >
+                    {banner.buttonText || 'EXPLORAR COLEÇÃO'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  
+                  {/* Edit text button for individual banner in edit mode */}
+                  {isEditMode && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditBannerTexts(banner)
+                      }}
+                      className="absolute top-2 left-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-100 group-hover:opacity-100 transition-opacity duration-300"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                  )}
+                  
+                  {/* Delete button for individual banner in edit mode */}
+                  {isEditMode && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm('Tem certeza que deseja excluir este destaque?')) {
+                          handleDeleteBanner(banner.id)
+                        }
+                      }}
+                      className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full opacity-100 group-hover:opacity-100 transition-opacity duration-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-              
-              {/* Edit overlay for individual banner */}
-              {isEditMode && (
-                <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="bg-yellow-400 text-gray-900 px-3 py-2 rounded-lg flex items-center gap-2">
-                    <Edit3 className="h-4 w-4" />
-                    <span className="text-sm font-medium">Editar Imagem</span>
+            ))}
+            
+            {/* Add new banner card in edit mode */}
+            {isEditMode && (
+              <div
+                className="hidden relative h-[400px] overflow-hidden group cursor-pointer bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 flex flex-col items-center justify-center flex-shrink-0 w-[300px] md:w-auto"
+                onClick={() => {
+                  // Create a new banner with default values
+                  const bannerId = 'banner-' + Date.now()
+                  const defaultTitle = "Novo Destaque"
+                  
+                  // Generate a slug for the new page
+                  const slug = defaultTitle
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\w\-]+/g, '')
+                
+                  const newBanner: ShowcaseBanner = {
+                    id: bannerId,
+                    title: defaultTitle,
+                    subtitle: "Subtítulo",
+                    description: "Descrição do novo destaque da temporada",
+                    image: "/placeholder-default.svg",
+                    link: '/explore/' + slug, // Link to the dynamic explore page
+                    buttonText: "EXPLORAR",
+                    overlayColor: "from-black/50 via-black/20 to-transparent",
+                    tag: "Streetwear Premium"
+                  }
+                  
+                  // Add the new banner to the list
+                  const updatedBanners = [...banners, newBanner]
+                  setBanners(updatedBanners)
+                  localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
+                  
+                  // Also save to backend
+                  try {
+                    fetch('/api/content', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ 
+                        id: 'gang-boyz-showcase-banners', 
+                        content: JSON.stringify(updatedBanners) 
+                      }),
+                    });
+                  } catch (error) {
+                    console.error('Error saving banners to backend:', error);
+                  }
+                  
+                  window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
+                  toast.success("Novo banner adicionado com sucesso! A página será acessível via o link do banner.")
+                }}
+              >
+                <div className="relative z-10 p-6 h-full flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xl font-black text-white mb-2">Novo Destaque</h3>
+                    <p className="text-gray-200 font-semibold mb-1">Subtítulo</p>
+                    <p className="text-gray-300 text-sm leading-relaxed">Descrição do novo destaque da temporada</p>
+                  </div>
+                  <button data-slot="button" className="inline-flex items-center justify-center whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 has-[>svg]:px-2.5 w-fit bg-white text-black hover:bg-gray-200 font-bold px-4 py-2 shadow-lg transition-all duration-300">
+                    EXPLORAR
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-right ml-2 h-4 w-4">
+                      <path d="M5 12h14"></path>
+                      <path d="m12 5 7 7-7 7"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent"></div>
+                <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <Plus className="h-12 w-12 mx-auto mb-2" />
+                    <p className="text-lg font-medium">Adicionar Destaque</p>
                   </div>
                 </div>
-              )}
-              
-              {/* Content */}
-              <div className="relative z-10 p-6 h-full flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xl font-black text-white mb-2">
-                    {banner.title}
-                  </h3>
-                  <p className="text-gray-200 font-semibold mb-1">
-                    {banner.subtitle}
-                  </p>
-                  <p className="text-gray-300 text-sm leading-relaxed">
-                    {banner.description}
-                  </p>
-                </div>
-                <Button 
-                  size="sm" 
-                  className="w-fit bg-white text-black hover:bg-gray-200 font-bold px-4 py-2 shadow-lg transition-all duration-300"
-                >
-                  {banner.buttonText}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                
-                {/* Edit text button for individual banner in edit mode */}
-                {isEditMode && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleEditBannerTexts(banner)
-                    }}
-                    className="absolute top-2 left-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-100 group-hover:opacity-100 transition-opacity duration-300"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </button>
-                )}
-                
-                {/* Delete button for individual banner in edit mode */}
-                {isEditMode && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (window.confirm('Tem certeza que deseja excluir este destaque?')) {
-                        handleDeleteBanner(banner.id)
-                      }
-                    }}
-                    className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-2 rounded-full opacity-100 group-hover:opacity-100 transition-opacity duration-300"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
-          
-          {/* Add new banner card in edit mode */}
-          {isEditMode && (
-            <div
-              className="hidden relative h-[400px] overflow-hidden group cursor-pointer bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 flex flex-col items-center justify-center flex-shrink-0 w-[300px] md:w-auto"
-              onClick={() => {
-                // Create a new banner with default values
-                const bannerId = 'banner-' + Date.now()
-                const defaultTitle = "Novo Destaque"
-                
-                // Generate a slug for the new page
-                const slug = defaultTitle
-                  .toLowerCase()
-                  .replace(/\s+/g, '-')
-                  .replace(/[^\w\-]+/g, '')
-                
-                const newBanner: ShowcaseBanner = {
-                  id: bannerId,
-                  title: defaultTitle,
-                  subtitle: "Subtítulo",
-                  description: "Descrição do novo destaque da temporada",
-                  image: "/placeholder-default.svg",
-                  link: '/explore/' + slug, // Link to the dynamic explore page
-                  buttonText: "EXPLORAR",
-                  overlayColor: "from-black"
-                }
-                
-                // Add the new banner to the list
-                const updatedBanners = [...banners, newBanner]
-                setBanners(updatedBanners)
-                localStorage.setItem("gang-boyz-showcase-banners", JSON.stringify(updatedBanners))
-                
-                // Also save to backend
-                try {
-                  fetch('/api/content', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                      id: 'gang-boyz-showcase-banners', 
-                      content: JSON.stringify(updatedBanners) 
-                    }),
-                  });
-                } catch (error) {
-                  console.error('Error saving banners to backend:', error);
-                }
-                
-                window.dispatchEvent(new CustomEvent('showcaseBannersUpdated'))
-                toast.success("Novo banner adicionado com sucesso! A página será acessível via o link do banner.")
-              }}
-            >
-              <div className="relative z-10 p-6 h-full flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xl font-black text-white mb-2">Novo Destaque</h3>
-                  <p className="text-gray-200 font-semibold mb-1">Subtítulo</p>
-                  <p className="text-gray-300 text-sm leading-relaxed">Descrição do novo destaque da temporada</p>
-                </div>
-                <button data-slot="button" className="inline-flex items-center justify-center whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 has-[>svg]:px-2.5 w-fit bg-white text-black hover:bg-gray-200 font-bold px-4 py-2 shadow-lg transition-all duration-300">
-                  EXPLORAR
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-arrow-right ml-2 h-4 w-4">
-                    <path d="M5 12h14"></path>
-                    <path d="m12 5 7 7-7 7"></path>
-                  </svg>
-                </button>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent"></div>
-              <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <Plus className="h-12 w-12 mx-auto mb-2" />
-                  <p className="text-lg font-medium">Adicionar Destaque</p>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
       
@@ -1295,6 +1393,27 @@ export default function ${title.replace(/\s+/g, '')}Page() {
                   onChange={(e) => setEditingBannerTexts({...editingBannerTexts, buttonText: e.target.value})}
                   className="bg-gray-800 border-gray-700 text-white"
                 />
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-300 mb-1 block">Tag/Etiqueta (Opcional)</Label>
+                <Input
+                  value={editingBannerTexts.tag}
+                  onChange={(e) => setEditingBannerTexts({...editingBannerTexts, tag: e.target.value})}
+                  className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Ex: Streetwear Premium"
+                />
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium text-gray-300 mb-1 block">Gradiente de Overlay</Label>
+                <Input
+                  value={editingBannerTexts.overlayColor}
+                  onChange={(e) => setEditingBannerTexts({...editingBannerTexts, overlayColor: e.target.value})}
+                  className="bg-gray-800 border-gray-700 text-white"
+                  placeholder="Ex: from-black/50 via-black/20 to-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-1">Classes Tailwind para gradiente (deixe vazio para usar o padrão)</p>
               </div>
             </div>
             

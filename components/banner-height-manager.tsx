@@ -127,38 +127,13 @@ export function BannerHeightManager({ onHeightChange }: BannerHeightManagerProps
       </div>
       
       {/* Logo Width Adjustment */}
-      <div className="space-y-3 pt-4 border-t border-gray-700">
-        <h3 className="text-lg font-semibold text-white">Ajustar Logo</h3>
-        <Label className="text-sm font-medium text-gray-200">
-          Largura do Logo (px)
-        </Label>
-        <Slider
-          value={[logoWidth]}
-          onValueChange={(value) => setLogoWidth(value[0])}
-          min={100}
-          max={800}
-          step={5}
-          className="w-full"
-        />
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            value={logoWidth}
-            onChange={(e) => setLogoWidth(parseInt(e.target.value) || 100)}
-            min={100}
-            max={800}
-            className="w-24 bg-gray-700 text-white border-gray-600"
-          />
-          <span className="text-sm text-gray-300">px</span>
-        </div>
-      </div>
       
       {/* Action Buttons */}
       <div className="flex gap-3 pt-4">
         <Button onClick={saveHeights} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
           Salvar Alturas
         </Button>
-        <Button variant="outline" onClick={resetHeights} className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700">
+        <Button variant="outline" onClick={resetHeights} className="flex-1 border-gray-600 text-black hover:bg-gray-700">
           Resetar
         </Button>
       </div>

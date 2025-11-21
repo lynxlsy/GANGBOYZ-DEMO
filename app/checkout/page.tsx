@@ -215,20 +215,31 @@ export default function CheckoutPage() {
     )
     
     if (matchingCoupon) {
-      let couponDiscount = 0
-      if (matchingCoupon.discountType === "percentage") {
-        couponDiscount = subtotal * (matchingCoupon.discountValue / 100)
+      if (matchingCoupon.discountType === "free_shipping") {
+        // Apply free shipping
+        setShippingInfo(prev => ({
+          ...prev,
+          shippingCost: 0
+        }))
+        setDiscountType("free_shipping")
+        toast.success(`Cupom de frete grátis aplicado com sucesso! ${matchingCoupon.name}`)
       } else {
-        // Fixed discount
-        couponDiscount = matchingCoupon.discountValue
+        // Apply regular discount
+        let couponDiscount = 0
+        if (matchingCoupon.discountType === "percentage") {
+          couponDiscount = subtotal * (matchingCoupon.discountValue / 100)
+        } else {
+          // Fixed discount
+          couponDiscount = matchingCoupon.discountValue
+        }
+        
+        // Ensure discount doesn't exceed subtotal
+        couponDiscount = Math.min(couponDiscount, subtotal)
+        
+        setDiscount(couponDiscount)
+        setDiscountType("coupon")
+        toast.success(`Cupom aplicado com sucesso! ${matchingCoupon.name}`)
       }
-      
-      // Ensure discount doesn't exceed subtotal
-      couponDiscount = Math.min(couponDiscount, subtotal)
-      
-      setDiscount(couponDiscount)
-      setDiscountType("coupon")
-      toast.success(`Cupom aplicado com sucesso! ${matchingCoupon.name}`)
     } else {
       toast.error("Código de desconto inválido")
     }
@@ -372,7 +383,11 @@ export default function CheckoutPage() {
               
               <div className="flex justify-between items-center mb-2">
                 <span className="text-neutral-400 text-sm">Frete</span>
-                <span className="text-sm">R$ {shippingInfo.shippingCost.toFixed(2).replace(".", ",")}</span>
+                <span className="text-sm">
+                  {discountType === "free_shipping" 
+                    ? "Grátis" 
+                    : `R$ ${shippingInfo.shippingCost.toFixed(2).replace(".", ",")}`}
+                </span>
               </div>
               
               <div className="flex justify-between items-center text-lg font-bold mt-4 pt-4 border-t border-neutral-800">
@@ -408,7 +423,7 @@ export default function CheckoutPage() {
                 </div>
                 
                 {/* Available Coupons */}
-                <AvailableCouponsList />
+                <AvailableCouponsList hidden={true} />
               </div>
             </div>
           </div>

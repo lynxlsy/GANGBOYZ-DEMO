@@ -401,12 +401,29 @@ export function HeaderHomepage({ hideMobileHeader = false }: { hideMobileHeader?
           </div>
         </div>
 
-        {/* Barra de Pesquisa Desktop - Melhorada */}
-        {showSearchBar && (
-          <div className="px-[80px] pb-4 animate-in slide-in-from-top duration-300 search-container">
-            <SearchBar className="hidden md:block" />
+        {/* Barra de Pesquisa Desktop - Sempre visível na homepage abaixo do logo */}
+        <div className="px-[80px] pb-4 search-container">
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target as HTMLFormElement);
+              const searchQuery = formData.get('search') as string;
+              if (searchQuery && searchQuery.trim()) {
+                router.push(`/busca?q=${encodeURIComponent(searchQuery.trim())}`);
+              }
+            }}>
+              <div className="relative">
+                <input
+                  name="search"
+                  type="text"
+                  placeholder="Pesquisar produtos..."
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
+                />
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/60" />
+              </div>
+            </form>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Header Mobile - Otimizado */}

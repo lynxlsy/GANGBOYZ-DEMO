@@ -9,6 +9,7 @@ import { useCart } from "@/lib/cart-context"
 import { Sparkles } from "lucide-react"
 import Link from "next/link"
 import { eventManager } from "@/lib/event-manager"
+import { CustomMobileHeader } from "@/components/em-alta-mobile-header"
 
 export default function LancamentosPage() {
   const { products } = useProducts()
@@ -48,7 +49,10 @@ export default function LancamentosPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
+      <CustomMobileHeader />
+      <div className="hidden md:block">
+        <Header />
+      </div>
       
       {/* Espaçamento para mover a faixa mais 2cm para baixo */}
       <div className="h-[180px]"></div>

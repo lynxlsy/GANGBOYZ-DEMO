@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Upload, Edit3 } from "lucide-react"
 import { toast } from "sonner"
+import { useRouter } from 'next/navigation'
 
 interface Collection {
   id: string
@@ -26,6 +27,7 @@ export function BannerGrid() {
   const [currentCollectionId, setCurrentCollectionId] = useState("")
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   // Check if we're in edit mode
   useEffect(() => {
@@ -226,7 +228,7 @@ export function BannerGrid() {
                 if (isEditMode) {
                   handleEditCollection(collection.id)
                 } else if (collection.link) {
-                  window.location.href = collection.link
+                  router.push(collection.link)
                 }
               }}
             >

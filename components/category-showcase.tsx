@@ -20,42 +20,42 @@ const defaultCategories: Category[] = [
   {
     id: "camisetas",
     name: "Camisetas",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/camisetas",
     description: ""
   },
   {
     id: "moletons",
     name: "Moletons",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/moletons",
     description: ""
   },
   {
     id: "jaquetas",
     name: "Jaquetas",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/jaquetas",
     description: ""
   },
   {
     id: "calcas",
     name: "Calças",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/calcas",
     description: ""
   },
   {
     id: "shorts",
     name: "Shorts",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/shorts-bermudas",
     description: ""
   },
   {
     id: "em-alta",
     name: "Em Alta",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "/em-alta",
     description: "Produtos em Alta"
   }
@@ -71,7 +71,7 @@ export function CategoryShowcase({ isEditMode = false }: { isEditMode?: boolean 
   const [newCategory, setNewCategory] = useState({
     id: "",
     name: "",
-    image: "/placeholder-category-circle.png",
+    image: "/placeholder-camiseta.jpg",
     href: "",
     description: ""
   })
@@ -103,7 +103,7 @@ export function CategoryShowcase({ isEditMode = false }: { isEditMode?: boolean 
               return {
                 id: cat.id,
                 name: cat.name,
-                image: cat.image || "/placeholder-category-circle.png",
+                image: cat.image || "/placeholder-camiseta.jpg",
                 href: href,
                 description: cat.description || ""
               }
@@ -158,7 +158,7 @@ export function CategoryShowcase({ isEditMode = false }: { isEditMode?: boolean 
       return {
         id: cat.id,
         name: cat.name,
-        image: cat.image || "/placeholder-category-circle.png",
+        image: cat.image || "/placeholder-camiseta.jpg",
         href: href,
         description: cat.description,
         products: [] // Array vazio de produtos
@@ -237,7 +237,7 @@ export function CategoryShowcase({ isEditMode = false }: { isEditMode?: boolean 
     const localStorageFormat = updatedCategories.map(cat => ({
       id: cat.id,
       name: cat.name,
-      image: cat.image || "/placeholder-category-circle.png",
+      image: cat.image || "/placeholder-camiseta.jpg",
       href: cat.href || `/explore/${cat.id}`,
       description: cat.description,
       products: [] // Array vazio de produtos
@@ -254,7 +254,7 @@ export function CategoryShowcase({ isEditMode = false }: { isEditMode?: boolean 
     setNewCategory({
       id: "",
       name: "",
-      image: "/placeholder-category-circle.png",
+      image: "/placeholder-camiseta.jpg",
       href: "",
       description: ""
     })

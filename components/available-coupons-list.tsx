@@ -11,7 +11,11 @@ interface Coupon {
   isActive: boolean
 }
 
-export function AvailableCouponsList() {
+interface AvailableCouponsListProps {
+  hidden?: boolean
+}
+
+export function AvailableCouponsList({ hidden = false }: AvailableCouponsListProps) {
   const [coupons, setCoupons] = useState<Coupon[]>([])
 
   useEffect(() => {
@@ -29,6 +33,11 @@ export function AvailableCouponsList() {
       }
     }
   }, [])
+
+  // If hidden prop is true, don't render anything
+  if (hidden) {
+    return null
+  }
 
   if (coupons.length === 0) {
     return null

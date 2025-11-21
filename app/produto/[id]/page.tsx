@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/lib/cart-context"
 import { useUser } from "@/lib/user-context"
 import { toast } from "sonner"
-import { Heart, Share2, Truck, Shield, RotateCcw, ShoppingCart } from "lucide-react"
+import { Heart, Share2, Truck, Shield, RotateCcw, ShoppingCart, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -19,6 +19,7 @@ interface Product {
   price: number
   originalPrice?: number
   image: string
+  images?: string[]
   description: string
   category: string
   color: string
@@ -36,6 +37,8 @@ interface Product {
   freeShippingThreshold?: string
   pickupText?: string
   pickupStatus?: string
+  // Size-specific inventory for recommendations
+  sizeQuantities?: Record<string, number>
 }
 
 interface ProductInfoConfig {
@@ -79,6 +82,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [loadingShipping, setLoadingShipping] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const { state, addItem, openCart } = useCart()
   const { user, favorites, addToFavorites, removeFromFavorites, isFavorite } = useUser()
 
@@ -179,7 +183,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               description: recommendationProduct.description || "Produto premium da Gang BoyZ",
               category: recommendationProduct.recommendationCategory || "Recomendações",
               sizes: recommendationProduct.availableSizes || ["P", "M", "G", "GG"],
-              stock: recommendationProduct.availableUnits || Math.floor(Math.random() * 10) + 1
+              stock: recommendationProduct.availableUnits || Math.floor(Math.random() * 10) + 1,
+              sizeQuantities: recommendationProduct.sizeQuantities || {}
             };
           }
         }
@@ -217,6 +222,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           price: foundProduct.price,
           originalPrice: foundProduct.originalPrice,
           image: foundProduct.image || "/placeholder-default.svg",
+          images: foundProduct.images || [],
           description: foundProduct.description || "Produto premium da Gang BoyZ",
           category: foundProduct.category || "Produto",
           color: foundProduct.color || "Preto",
@@ -233,13 +239,15 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           freeShippingText: foundProduct.freeShippingText || loadedProductInfoConfig.freeShippingText,
           freeShippingThreshold: foundProduct.freeShippingThreshold || loadedProductInfoConfig.freeShippingThreshold,
           pickupText: foundProduct.pickupText || loadedProductInfoConfig.pickupText,
-          pickupStatus: foundProduct.pickupStatus || loadedProductInfoConfig.pickupStatus
+          pickupStatus: foundProduct.pickupStatus || loadedProductInfoConfig.pickupStatus,
+          // Size-specific inventory if available
+          sizeQuantities: foundProduct.sizeQuantities || {}
         })
       }
       
       setLoading(false)
     }
-
+    
     loadProduct()
   }, [params?.id])
 
@@ -360,6 +368,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       toast.error("Selecione um tamanho")
       return
     }
+    
+    if (!selectedColor) {
+      toast.error("Selecione uma cor")
+      return
+    }
 
     addItem({
       id: typeof product.id === 'string' ? parseInt(product.id, 10) : product.id,
@@ -367,6 +380,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       price: product.price,
       image: product.image,
       size: selectedSize,
+      color: selectedColor,
       quantity: quantity
     })
     
@@ -382,6 +396,11 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       toast.error("Selecione um tamanho")
       return
     }
+    
+    if (!selectedColor) {
+      toast.error("Selecione uma cor")
+      return
+    }
 
     // Create a single item for direct checkout
     const checkoutItem = {
@@ -390,7 +409,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       price: product.price,
       image: product.image,
       size: selectedSize,
-      color: selectedColor || undefined,
+      color: selectedColor,
       quantity: quantity
     }
     
@@ -430,6 +449,39 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     }
   }
 
+  // Função de compartilhamento
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = product?.name ? `${product.name} - Gang BoyZ` : "Confira este produto na Gang BoyZ";
+    
+    try {
+      // Verificar se é mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile && navigator.share) {
+        // Compartilhamento nativo para mobile
+        await navigator.share({
+          title: title,
+          url: url,
+        });
+      } else {
+        // Copiar para área de transferência no desktop
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copiado com sucesso!");
+      }
+    } catch (error) {
+      console.error("Erro ao compartilhar:", error);
+      // Fallback: copiar para área de transferência caso o share nativo falhe
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copiado com sucesso!");
+      } catch (copyError) {
+        console.error("Erro ao copiar link:", copyError);
+        toast.error("Falha ao copiar o link");
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -457,6 +509,26 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const discountPercentage = product.originalPrice && product.originalPrice > product.price 
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0
+
+  // Get all images (main image + additional images)
+  const allImages = product ? [product.image, ...(product.images || [])].filter(img => img) : []
+
+  // Navigation functions for image carousel
+  const nextImage = () => {
+    if (allImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length)
+    }
+  }
+
+  const prevImage = () => {
+    if (allImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length)
+    }
+  }
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index)
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -488,15 +560,77 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             
             {/* Imagem do Produto */}
             <div className="space-y-4">
-              <div className="aspect-square bg-gray-800 rounded-xl overflow-hidden">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  width={600}
-                  height={600}
-                  className="w-full h-full object-cover"
-                />
+              {/* Main Image Carousel */}
+              <div className="relative aspect-square bg-gray-800 rounded-xl overflow-hidden">
+                {allImages.length > 0 ? (
+                  <>
+                    <Image
+                      src={allImages[currentImageIndex] || "/placeholder-default.svg"}
+                      alt={`${product.name} - Imagem ${currentImageIndex + 1}`}
+                      width={600}
+                      height={600}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Navigation Arrows */}
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                          aria-label="Imagem anterior"
+                        >
+                          <ChevronDown className="h-5 w-5 rotate-90" />
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                          aria-label="Próxima imagem"
+                        >
+                          <ChevronDown className="h-5 w-5 -rotate-90" />
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Image Counter */}
+                    {allImages.length > 1 && (
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                        {currentImageIndex + 1} / {allImages.length}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Image
+                    src={product.image || "/placeholder-default.svg"}
+                    alt={product.name}
+                    width={600}
+                    height={600}
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
+              
+              {/* Thumbnail Previews */}
+              {allImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto py-2">
+                  {allImages.map((img, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToImage(index)}
+                      className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${currentImageIndex === index ? 'border-white' : 'border-gray-600'}`}
+                      aria-label={`Ver imagem ${index + 1}`}
+                    >
+                      <Image
+                        src={img || "/placeholder-default.svg"}
+                        alt={`Thumbnail ${index + 1}`}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
               
               {/* Botões de Ação */}
               <div className="flex gap-3">
@@ -513,6 +647,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 </button>
                 
                 <button
+                  onClick={handleShare}
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 bg-transparent border-white/20 text-white hover:bg-white/10"
                 >
                   <Share2 className="h-4 w-4 mr-2" />
@@ -546,7 +681,12 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 <div className="flex items-center gap-4 text-sm text-gray-400 mb-6">
                   <span className="text-green-400">Em estoque</span>
                   <span>•</span>
-                  <span>{product.stock} unidades</span>
+                  <span>
+                    {selectedSize && product.sizeQuantities && product.sizeQuantities[selectedSize] !== undefined
+                      ? `${product.sizeQuantities[selectedSize]} unidades disponíveis`
+                      : `${product.stock} unidades disponíveis`}
+                  </span>
+
                 </div>
               </div>
 
@@ -602,7 +742,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                         title={color.trim()}
                       >
                         {isSelected && (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-check h-4 w-4 text-white">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check h-4 w-4 text-white">
                             <path d="M20 6 9 17l-5-5"></path>
                           </svg>
                         )}
@@ -625,9 +765,26 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                     </button>
                     <span className="px-3 py-2 w-12 text-center">{quantity}</span>
                     <button
-                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                      disabled={quantity >= product.stock}
-                      className={`px-3 py-2 text-gray-400 hover:text-white transition-colors ${quantity >= product.stock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => setQuantity(Math.min(
+                        selectedSize && product.sizeQuantities && product.sizeQuantities[selectedSize] !== undefined
+                          ? product.sizeQuantities[selectedSize]
+                          : product.stock,
+                        quantity + 1
+                      ))}
+                      disabled={quantity >= (
+                        selectedSize && product.sizeQuantities && product.sizeQuantities[selectedSize] !== undefined
+                          ? product.sizeQuantities[selectedSize]
+                          : product.stock
+                      )}
+                      className={`px-3 py-2 text-gray-400 hover:text-white transition-colors ${
+                        quantity >= (
+                          selectedSize && product.sizeQuantities && product.sizeQuantities[selectedSize] !== undefined
+                            ? product.sizeQuantities[selectedSize]
+                            : product.stock
+                        ) 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : ''
+                      }`}
                     >
                       +
                     </button>
@@ -651,15 +808,13 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                 <button
                   onClick={handleBuyNow}
                   disabled={!selectedSize || !selectedColor}
-                  className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 w-full bg-white text-black hover:bg-gray-100 font-bold py-3 rounded-lg transition-colors ${!selectedSize || !selectedColor ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`hidden inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border shadow-xs hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 h-9 px-4 has-[>svg]:px-3 w-full bg-white text-black hover:bg-gray-100 font-bold py-3 rounded-lg transition-colors ${!selectedSize || !selectedColor ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{ display: 'none' }}
                 >
                   Comprar Agora
                 </button>
                 
-
               </div>
-
-
 
               {/* Informações Técnicas */}
               <div className="border-t border-gray-800 pt-6">

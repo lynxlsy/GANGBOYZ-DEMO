@@ -6,13 +6,12 @@ import { Hero } from "@/components/hero"
 import { CategoryShowcase } from "@/components/category-showcase"
 import { BannersShowcase } from "@/components/banners-showcase"
 import { FeaturedProducts } from "@/components/featured-products"
-import { ServicesSection } from "@/components/services-section"
 import { Footer } from "@/components/footer"
 import { useEditMode } from "@/lib/edit-mode-context"
 import { useBanner } from "@/hooks/use-banner"
 import { getBannerConfig } from "@/lib/banner-config"
 import { toast } from "sonner"
-import { ImageIcon, X, Upload, Trash2 } from "lucide-react"
+import { ImageIcon, X, Upload, Trash2, Edit3, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CartDrawer } from "@/components/cart-drawer"
 import { WelcomeModal } from "@/components/welcome-modal"
@@ -30,6 +29,10 @@ import { OffersBanner } from "@/components/banner-renderer"
 import { CouponManagement } from "@/components/coupon-management"
 import { TestCouponSystem } from "@/components/test-coupon-system"
 import { OngoingPurchaseNotification } from "@/components/ongoing-purchase-notification"
+import { getContentById, updateContentById } from "@/lib/editable-content-utils"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 export default function Home() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
@@ -45,6 +48,13 @@ export default function Home() {
       isEditMode = localStorage.getItem('edit-mode-enabled') === 'true'
     }
   }
+  
+  // State for about section
+  const [aboutTitle, setAboutTitle] = useState("Sobre a Gang Boyz")
+  const [aboutDescription, setAboutDescription] = useState("A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.")
+  const [editingAboutTitle, setEditingAboutTitle] = useState("Sobre a Gang Boyz")
+  const [editingAboutDescription, setEditingAboutDescription] = useState("A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.")
+  // Removed isEditingAboutSection state as we're using inline editing directly
   
   const [showBannersPanel, setShowBannersPanel] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -236,6 +246,54 @@ export default function Home() {
     { id: 'footer-banner', title: 'Banner Footer', description: 'Banner no rodapé da página' }
   ]
 
+  // Load about section content
+  useEffect(() => {
+    const loadAboutContent = async () => {
+      const titleContent = getContentById("about-title") || "Sobre a Gang Boyz"
+      const descriptionContent = getContentById("about-description") || "A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira."
+      
+      setAboutTitle(titleContent)
+      setAboutDescription(descriptionContent)
+    }
+    
+    loadAboutContent()
+    
+    // Listen for content updates
+    const handleContentUpdate = () => {
+      loadAboutContent()
+    }
+    
+    window.addEventListener('editableContentsUpdated', handleContentUpdate)
+    return () => {
+      window.removeEventListener('editableContentsUpdated', handleContentUpdate)
+    }
+  }, [])
+  
+  // Function to start editing about section
+  const handleEditAboutSection = () => {
+    setEditingAboutTitle(aboutTitle)
+    setEditingAboutDescription(aboutDescription)
+  }
+  
+  // Function to save about section edits
+  const handleSaveAboutSection = () => {
+    // Save to state
+    setAboutTitle(editingAboutTitle)
+    setAboutDescription(editingAboutDescription)
+    
+    // Save to localStorage/backend
+    updateContentById("about-title", editingAboutTitle);
+    updateContentById("about-description", editingAboutDescription);
+    
+    toast.success("Seção 'Sobre a Gang Boyz' atualizada com sucesso.");
+  }
+  
+  // Function to cancel about section edit
+  const handleCancelAboutSection = () => {
+    setEditingAboutTitle(aboutTitle)
+    setEditingAboutDescription(aboutDescription)
+  }
+  
   return (
     <div className="min-h-screen bg-black text-white">
       <TopBannerStrip />
@@ -341,7 +399,7 @@ export default function Home() {
         <BannersShowcase isEditMode={isEditMode} />
         
         {/* Recommendations Section */}
-        <RecommendationsSection />
+        <RecommendationsSection isEditMode={isEditMode} />
         
         {/* Hot Section */}
         <HotSection isEditMode={isEditMode} />
@@ -358,20 +416,51 @@ export default function Home() {
         <FooterBanner />
         
         {/* Sobre a Gang Boyz Section */}
-        <div className="py-16">
+        <div className="py-16 relative">
           <div className="container mx-auto px-4 text-center max-w-3xl">
-            <h2 className="text-3xl font-bold text-white mb-6">Sobre a Gang Boyz</h2>
-            <p className="text-gray-300 text-lg leading-relaxed">
-              A Gang Boyz é uma marca de streetwear brasileira que traz autenticidade, estilo e qualidade para as ruas. 
-              Representamos a cultura urbana com roupas que expressam a verdadeira essência da juventude brasileira.
-            </p>
+            {isEditMode ? (
+              <div className="mb-4">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Input
+                    value={editingAboutTitle}
+                    onChange={(e) => setEditingAboutTitle(e.target.value)}
+                    className="text-3xl font-bold text-white text-center bg-gray-800 border-gray-600"
+                  />
+                  <Edit3 className="h-5 w-5 text-gray-400" />
+                </div>
+                <div className="mb-4">
+                  <Textarea
+                    value={editingAboutDescription}
+                    onChange={(e) => setEditingAboutDescription(e.target.value)}
+                    className="text-gray-300 text-lg leading-relaxed bg-gray-800 border-gray-600 w-full mx-auto"
+                    rows={4}
+                  />
+                </div>
+                <div className="flex justify-center gap-2 mt-2">
+                  <Button onClick={handleSaveAboutSection} size="sm" className="bg-green-600 hover:bg-green-700">
+                    <Save className="h-4 w-4 mr-1" />
+                    Salvar
+                  </Button>
+                  <Button onClick={handleCancelAboutSection} variant="outline" size="sm" className="bg-gray-700 text-white hover:bg-gray-600">
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-3xl font-bold text-white mb-6">{aboutTitle}</h2>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  {aboutDescription}
+                </p>
+              </>
+            )}
           </div>
         </div>
         
         {/* Services Section with spacing */}
-        <div className="mt-8">
+        {/* <div className="mt-8">
           <ServicesSection isEditMode={isEditMode} />
-        </div>
+        </div> */}
         
         {/* Product Information Edit Section - Removed as per new requirements */}
         {/* {isEditMode && <ProductInfoEditor />} */}

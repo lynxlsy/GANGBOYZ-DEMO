@@ -558,18 +558,18 @@ export function EditModeControls() {
                       }
                     } catch (syncError: any) {
                       console.warn(`⚠️ Falha na sincronização do banner ${selectedBanner} com Firebase:`, syncError)
-                      // Only show error if it's a real network/firebase issue, not just offline
-                      if (typeof navigator !== 'undefined' && navigator.onLine) {
-                        // Check if it's a quota exceeded error or other specific Firebase error
-                        if (syncError?.code === 'resource-exhausted' || syncError?.message?.includes('quota')) {
-                          toast.warning("Quota do Firebase excedida. Banner salvo localmente.")
-                        } else {
-                          toast.error("Falha na sincronização com Firebase")
-                        }
-                      } else {
-                        // If offline, don't show error - just inform user
-                        console.log('Offline mode: banner saved locally')
-                      }
+                      // Sincronização com Firebase desativada temporariamente
+                      // if (typeof navigator !== 'undefined' && navigator.onLine) {
+                      //   // Check if it's a quota exceeded error or other specific Firebase error
+                      //   if (syncError?.code === 'resource-exhausted' || syncError?.message?.includes('quota')) {
+                      //     toast.warning("Quota do Firebase excedida. Banner salvo localmente.")
+                      //   } else {
+                      //     toast.error("Falha na sincronização com Firebase")
+                      //   }
+                      // } else {
+                      //   // If offline, don't show error - just inform user
+                      //   console.log('Offline mode: banner saved locally')
+                      // }
                     }
                   }, 100)
                 }
@@ -1040,7 +1040,7 @@ export function EditModeControls() {
                     }
                   }}
                   variant="outline"
-                  className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
+                  className="w-full border-gray-600 text-black hover:bg-gray-800"
                 >
                   Cancelar
                 </Button>

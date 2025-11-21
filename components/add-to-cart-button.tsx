@@ -19,13 +19,18 @@ interface AddToCartButtonProps {
   variant?: "default" | "outline" | "ghost"
   size?: "sm" | "md" | "lg"
   className?: string
+  // Add size and color props
+  selectedSize?: string
+  selectedColor?: string
 }
 
 export function AddToCartButton({ 
   product, 
   variant = "default", 
   size = "md", 
-  className = "" 
+  className = "",
+  selectedSize,
+  selectedColor
 }: AddToCartButtonProps) {
   const { addItem, state } = useCart()
   const { data: session } = useSession()
@@ -58,7 +63,9 @@ export function AddToCartButton({
         name: product.name,
         price: product.price,
         image: product.image || '',
-        quantity: 1
+        quantity: 1,
+        size: selectedSize,
+        color: selectedColor
       })
       
       setIsAdded(true)

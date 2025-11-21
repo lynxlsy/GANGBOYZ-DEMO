@@ -37,12 +37,21 @@ type CartAction =
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case "ADD_ITEM": {
-      const existingItem = state.items.find((item) => item.id === action.payload.id)
+      // Create a function to check if two items are the same (same id, size, and color)
+      const isSameItem = (item1: CartItem, item2: Omit<CartItem, "quantity"> & { quantity?: number }) => {
+        return item1.id === item2.id && 
+               item1.size === item2.size && 
+               item1.color === item2.color;
+      };
+      
+      // Find existing item with same id, size, and color
+      const existingItem = state.items.find((item) => isSameItem(item, action.payload));
+      
       if (existingItem) {
         return {
           ...state,
           items: state.items.map((item) =>
-            item.id === action.payload.id
+            isSameItem(item, action.payload)
               ? { ...item, quantity: item.quantity + (action.payload.quantity || 1) }
               : item,
           ),

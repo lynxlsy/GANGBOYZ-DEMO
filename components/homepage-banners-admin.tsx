@@ -177,12 +177,12 @@ export function HomepageBannersAdmin({
       localStorage.setItem(stripConfig.storageKey, JSON.stringify(stripData))
       window.dispatchEvent(new CustomEvent(stripConfig.eventName))
       
-      // Sincronizar com Firebase
-      try {
-        await bannerSyncServiceV2.syncHomepageBannersToFirebase()
-      } catch (syncError) {
-        console.warn("⚠️ Erro ao sincronizar strip com Firebase:", syncError)
-      }
+      // Sincronização com Firebase desativada temporariamente
+      // try {
+      //   await bannerSyncServiceV2.syncHomepageBannersToFirebase()
+      // } catch (syncError) {
+      //   console.warn("⚠️ Erro ao sincronizar strip com Firebase:", syncError)
+      // }
       
       setStripSaving(false)
       setStripSaved(true)
@@ -200,31 +200,28 @@ export function HomepageBannersAdmin({
   }
 
   const syncToFirebase = async () => {
-    if (isSyncing) {
-      toast.warning("Sync already in progress. Please wait...")
-      return
-    }
-
-    setIsSyncing(true)
-    toast.info("🔄 Starting synchronization...", { duration: 2000 })
-    
-    try {
-      const startTime = Date.now()
-      await bannerSyncServiceV2.syncHomepageBannersToFirebase()
-      const duration = Date.now() - startTime
-      
-      toast.success(`✅ Synchronization completed! (${duration}ms)`, { duration: 3000 })
-    } catch (error: any) {
-      console.error("Sync error:", error)
-      
-      if (error?.code === 'resource-exhausted' || error?.message?.includes('quota')) {
-        toast.warning("⚠️ Firebase quota exceeded. Using local sync.", { duration: 4000 })
-      } else {
-        toast.error("❌ Sync error. Using local backup.", { duration: 4000 })
-      }
-    } finally {
-      setIsSyncing(false)
-    }
+    toast.info("Sincronização com Firebase desativada temporariamente.", { duration: 2000 })
+    // Sincronização desativada conforme solicitado
+    // setIsSyncing(true)
+    // toast.info("🔄 Starting synchronization...", { duration: 2000 })
+    // 
+    // try {
+    //   const startTime = Date.now()
+    //   await bannerSyncServiceV2.syncHomepageBannersToFirebase()
+    //   const duration = Date.now() - startTime
+    //   
+    //   toast.success(`✅ Synchronization completed! (${duration}ms)`, { duration: 3000 })
+    // } catch (error: any) {
+    //   console.error("Sync error:", error)
+    //   
+    //   if (error?.code === 'resource-exhausted' || error?.message?.includes('quota')) {
+    //     toast.warning("⚠️ Firebase quota exceeded. Using local sync.", { duration: 4000 })
+    //   } else {
+    //     toast.error("❌ Sync error. Using local backup.", { duration: 4000 })
+    //   }
+    // } finally {
+    //   setIsSyncing(false)
+    // }
   }
 
   const openEditor = (bannerId: string) => {

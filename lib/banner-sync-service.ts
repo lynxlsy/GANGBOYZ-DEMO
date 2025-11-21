@@ -234,50 +234,52 @@ class BannerSyncService {
 
   // Sincronizar todos os banners da homepage
   async syncHomepageBannersToFirebase(): Promise<void> {
-    try {
-      // Verificar se estamos no cliente
-      if (typeof window === 'undefined') return
+    console.log('Sincronização com Firebase desativada temporariamente')
+    // Sincronização desativada conforme solicitado
+    // try {
+    //   // Verificar se estamos no cliente
+    //   if (typeof window === 'undefined') return
 
-      const savedBanners = localStorage.getItem('gang-boyz-homepage-banners')
-      if (!savedBanners) {
-        console.log('Nenhum banner encontrado no localStorage')
-        return
-      }
+    //   const savedBanners = localStorage.getItem('gang-boyz-homepage-banners')
+    //   if (!savedBanners) {
+    //     console.log('Nenhum banner encontrado no localStorage')
+    //     return
+    //   }
 
-      const banners: BannerData[] = JSON.parse(savedBanners)
-      
-      // Filtrar apenas banners hero
-      const heroBanners = banners.filter(banner => 
-        banner.id === 'hero-banner-1' || banner.id === 'hero-banner-2'
-      )
+    //   const banners: BannerData[] = JSON.parse(savedBanners)
+    //   
+    //   // Filtrar apenas banners hero
+    //   const heroBanners = banners.filter(banner => 
+    //     banner.id === 'hero-banner-1' || banner.id === 'hero-banner-2'
+    //   )
 
-      // Verificar se Firebase está disponível primeiro
-      const firebaseAvailable = await this.checkFirebaseAvailability()
-      
-      if (!firebaseAvailable) {
-        console.log('⚠️ Firebase indisponível. Usando sincronização local.')
-        // Sincronizar via localStorage para todas as abas
-        for (const banner of heroBanners) {
-          await this.syncBannerToLocalStorage(banner)
-        }
-        return
-      }
+    //   // Verificar se Firebase está disponível primeiro
+    //   const firebaseAvailable = await this.checkFirebaseAvailability()
+    //   
+    //   if (!firebaseAvailable) {
+    //     console.log('⚠️ Firebase indisponível. Usando sincronização local.')
+    //     // Sincronizar via localStorage para todas as abas
+    //     for (const banner of heroBanners) {
+    //       await this.syncBannerToLocalStorage(banner)
+    //     }
+    //     return
+    //   }
 
-      // Sincronizar cada banner com Firebase
-      for (const banner of heroBanners) {
-        await this.syncBannerToFirebase(banner, 'hero')
-      }
+    //   // Sincronizar cada banner com Firebase
+    //   for (const banner of heroBanners) {
+    //     await this.syncBannerToFirebase(banner, 'hero')
+    //   }
 
-      // Sincronizar via localStorage para todas as abas
-      for (const banner of heroBanners) {
-        await this.syncBannerToLocalStorage(banner)
-      }
+    //   // Sincronizar via localStorage para todas as abas
+    //   for (const banner of heroBanners) {
+    //     await this.syncBannerToLocalStorage(banner)
+    //   }
 
-      console.log(`✅ ${heroBanners.length} banners sincronizados com Firebase`)
-    } catch (error) {
-      console.error('❌ Erro ao sincronizar banners da homepage:', error)
-      throw error
-    }
+    //   console.log(`✅ ${heroBanners.length} banners sincronizados com Firebase`)
+    // } catch (error) {
+    //   console.error('❌ Erro ao sincronizar banners da homepage:', error)
+    //   throw error
+    // }
   }
 
   // Verificar se Firebase está disponível

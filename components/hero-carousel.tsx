@@ -218,7 +218,7 @@ export function HeroCarousel({ banners, autoPlayInterval = 1000, onEditBannerIma
       {/* Navigation Arrows - Otimizado para Mobile */}
       <button
         onClick={goToPrevious}
-        className="absolute left-1 md:left-4 top-1/2 transform -translate-y-1/2 md:top-1/2 md:-translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 md:p-3 rounded-full transition-all duration-300 group cursor-pointer touch-manipulation"
+        className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 md:p-3 rounded-full transition-all duration-300 group cursor-pointer touch-manipulation flex items-center justify-center"
         aria-label="Banner anterior"
         style={{ minWidth: '44px', minHeight: '44px' }}
       >
@@ -227,7 +227,7 @@ export function HeroCarousel({ banners, autoPlayInterval = 1000, onEditBannerIma
       
       <button
         onClick={goToNext}
-        className="absolute right-1 md:right-4 top-1/2 transform -translate-y-1/2 md:top-1/2 md:-translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 md:p-3 rounded-full transition-all duration-300 group cursor-pointer touch-manipulation"
+        className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 md:p-3 rounded-full transition-all duration-300 group cursor-pointer touch-manipulation flex items-center justify-center"
         aria-label="Próximo banner"
         style={{ minWidth: '44px', minHeight: '44px' }}
       >
@@ -235,7 +235,7 @@ export function HeroCarousel({ banners, autoPlayInterval = 1000, onEditBannerIma
       </button>
 
       {/* Page Indicators - Otimizado para Mobile */}
-      <div className="absolute bottom-3 md:bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2">
+      <div className="absolute bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
         {banners.map((_, index) => (
           <button
             key={index}
@@ -257,7 +257,7 @@ export function HeroCarousel({ banners, autoPlayInterval = 1000, onEditBannerIma
       <div className="absolute bottom-16 md:bottom-32 right-8 md:right-20 w-1.5 h-1.5 md:w-3 md:h-3 red-bg rounded-full animate-pulse opacity-70"></div>
 
       {/* Scroll Indicator - Otimizado para Mobile */}
-      <div className="absolute bottom-6 md:bottom-16 left-1/2 transform -translate-x-1/2 animate-bounce z-10">
+      <div className="absolute bottom-6 md:bottom-16 left-1/2 -translate-x-1/2 animate-bounce z-10">
         <div className="w-5 h-8 md:w-6 md:h-10 border-2 border-red-500 rounded-full flex justify-center touch-manipulation">
           <div className="w-1 h-2 md:w-1 md:h-3 red-bg rounded-full mt-1.5 md:mt-2 animate-pulse" />
         </div>

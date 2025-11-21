@@ -179,6 +179,17 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     description: 'Produtos encontrados',
     adminTitle: 'Admin - Shorts/Bermudas Praia',
     adminDescription: 'Gerencie os produtos da categoria Praia'
+  },
+  
+  // Em Alta
+  'em-alta': {
+    category: 'Em Alta',
+    subcategory: 'Todas',
+    displayName: 'Em Alta',
+    breadcrumb: 'Início . EM ALTA',
+    description: 'Produtos em alta',
+    adminTitle: 'Admin - Em Alta',
+    adminDescription: 'Gerencie os produtos da categoria Em Alta'
   }
 }
 
